@@ -1,0 +1,7 @@
+# To ignore docs files
+ImportantThings.docx
+*.docx
+
+
+# Ignore dependencies
+node_modules/
