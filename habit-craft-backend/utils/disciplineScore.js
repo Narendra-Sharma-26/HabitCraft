@@ -2,7 +2,7 @@ const Habit = require("../models/Habit");
 const HabitLog = require("../models/HabitLog");
 
 const difficultyPoints = {
-  Light: 5,
+  Easy: 5,
   Medium: 10,
   Hard: 15,
 };
