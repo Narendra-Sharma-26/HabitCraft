@@ -5,7 +5,6 @@ import { Colors } from '../theme/Colors';
 
 export default function AddHabitScreen({ navigation }: any) {
   const [title, setTitle] = useState('');
-  const [category, setCategory] = useState('Health');
   const [difficulty, setDifficulty] = useState('Medium');
   const [preferredTime, setPreferredTime] = useState('Morning');
   
@@ -13,7 +12,6 @@ export default function AddHabitScreen({ navigation }: any) {
   const [customDuration, setCustomDuration] = useState(''); 
   const [loading, setLoading] = useState(false);
 
-  const categories = ["Health", "Work", "Learning", "Mindfulness", "Other"];
   const difficulties = ["Easy", "Medium", "Hard"];
   const times = ["Morning", "Afternoon", "Evening", "Anytime"];
   const durationOptions: (number | 'Custom')[] = [15, 30, 45, 60, 'Custom'];
@@ -28,8 +26,9 @@ export default function AddHabitScreen({ navigation }: any) {
 
     setLoading(true);
     try {
+      // 🗑️ Removed category from the payload
       await api.post('/habits', {
-        title, category, difficulty, preferredTime, duration: finalDuration 
+        title, difficulty, preferredTime, duration: finalDuration 
       });
       navigation.goBack(); 
     } catch (error: any) {
@@ -77,10 +76,7 @@ export default function AddHabitScreen({ navigation }: any) {
             />
         </View>
 
-        <View style={styles.cardSection}>
-            <Text style={styles.label}>Category</Text>
-            {renderChips(categories, category, setCategory)}
-        </View>
+        {/* 🗑️ Category section entirely removed */}
 
         <View style={styles.cardSection}>
             <Text style={styles.label}>Duration</Text>

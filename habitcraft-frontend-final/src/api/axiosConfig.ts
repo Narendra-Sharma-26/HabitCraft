@@ -3,9 +3,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // REPLACE THIS IP WITH YOUR COMPUTER'S IP ADDRESS
 // Make sure to keep the :5000/api at the end!
-const BASE_URL = 'http://192.168.19.109:5000/api'; 
+const BASE_URL = 'http://192.168.19.103:5000/api'; 
 
-// const BASE_URL = 'http://10.103.33.34:5000/api';    // use this one but change the ip when networkchange (ipconfig)
+// const BASE_URL = 'http://10.213.167.34:5000/api';    // use this one but change the ip when networkchange (ipconfig)
 
 //const BASE_URL = 'http://localhost:5000/api';     // use this one when just want to show on web
 

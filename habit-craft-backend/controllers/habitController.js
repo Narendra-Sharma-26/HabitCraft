@@ -4,14 +4,12 @@ const HabitLog = require("../models/HabitLog");
 const Schedule = require("../models/Schedule");
 const { findAvailableTime } = require("../utils/scheduler");
 
-
-
 // @desc    Add new habit
 // @route   POST /api/habits
 // @access  Private
 const addHabit = async (req, res) => {
   try {
-    const { title, category, difficulty, preferredTime, duration, timeWindow } = req.body; 
+    const { title, difficulty, preferredTime, duration, timeWindow } = req.body; 
     const userId = req.user._id;
 
     const schedule = await Schedule.findOne({ userId });
@@ -49,7 +47,7 @@ const addHabit = async (req, res) => {
     const scheduledTime = findAvailableTime(schedule, preferredTime, existingHabits, habitDuration, timeWindow);
 
     const habit = await Habit.create({
-      userId, title, category, difficulty, preferredTime, timeWindow, scheduledTime, duration: habitDuration, 
+      userId, title, difficulty, preferredTime, timeWindow, scheduledTime, duration: habitDuration, 
     });
 
     res.status(201).json({ message: "Habit added successfully", habit });
@@ -163,7 +161,7 @@ const archiveHabit = async (req, res) => {
 // @access  Private
 const editHabit = async (req, res) => {
   try {
-    const { title, category, difficulty, duration, scheduledTime } = req.body;
+    const { title, difficulty, duration, scheduledTime } = req.body;
     const userId = req.user._id;
     const habitId = req.params.id;
 
@@ -172,7 +170,6 @@ const editHabit = async (req, res) => {
 
     // Update fields
     if (title) habit.title = title;
-    if (category) habit.category = category;
     if (difficulty) habit.difficulty = difficulty;
     if (duration) habit.duration = Number(duration);
     
@@ -203,6 +200,5 @@ const deleteHabit = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
-
 
 module.exports = { addHabit, getHabits, toggleHabit, archiveHabit, editHabit, deleteHabit };

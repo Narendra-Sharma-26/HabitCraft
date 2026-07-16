@@ -1,11 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  Alert, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView
+  ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView
 } from 'react-native';
 import api from '../api/axiosConfig';
 import { AuthContext } from '../context/AuthContext';
+import { AlertContext } from '../context/AlertContext'; // ⭐ Added Custom Alert Context
 import { Colors } from '../theme/Colors';
+import { Ionicons } from '@expo/vector-icons'; // ⭐ Added Icons for the eye toggle
 
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
@@ -22,11 +24,15 @@ export default function AuthScreen() {
 
   const [password, setPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  
+  // ⭐ State for password visibility
+  const [showPassword, setShowPassword] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [focusedInput, setFocusedInput] = useState<string | null>(null);
 
-  const { login } = React.useContext(AuthContext);
+  const { login } = useContext(AuthContext);
+  const { showAlert } = useContext(AlertContext); // ⭐ Initialized custom alert
 
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
     clientId: '161203196741-6mvg9hok43hbtu6d5fi29s3q0q8c6prn.apps.googleusercontent.com',
@@ -45,7 +51,7 @@ export default function AuthScreen() {
       const res = await api.post('/auth/google', { idToken });
       login(res.data.token);
     } catch (error: any) {
-      Alert.alert("Failed", "Google authentication failed in backend.");
+      showAlert("Failed", "Google authentication failed in backend.", "⚠️"); // ⭐ Custom alert
     } finally {
       setLoading(false);
     }
@@ -82,12 +88,12 @@ export default function AuthScreen() {
   const handleAuth = async () => {
     // 1. Check if fields are empty
     if (!email || !password || (!isLogin && !name)) {
-      Alert.alert("Hold up", "Please fill in all fields.");
+      showAlert("Hold up", "Please fill in all fields.", "✋"); // ⭐ Custom alert
       return;
     }
     // 2. Check if there are validation errors (the red borders)
     if (emailError || passwordError) {
-      Alert.alert("Invalid Input", "Please fix the errors before continuing.");
+      showAlert("Invalid Input", "Please fix the errors before continuing.", "⚠️"); // ⭐ Custom alert
       return;
     }
 
@@ -102,10 +108,11 @@ export default function AuthScreen() {
         // --- SIGNUP FLOW ---
         await api.post('/auth/register', { name, email, password });
 
-        // Success! Show an alert, but DO NOT log them in.
-        Alert.alert(
+        // ⭐ Custom Account Created Alert
+        showAlert(
           "Account Created!",
-          "Your account is ready. Please log in with your new credentials."
+          "Your account is ready. Please log in with your new credentials.",
+          "🎉"
         );
 
         // Switch the UI back to Login mode
@@ -115,7 +122,7 @@ export default function AuthScreen() {
       }
     } catch (error: any) {
       const errorMsg = error.response?.data?.message || "Something went wrong";
-      Alert.alert("Failed", errorMsg);
+      showAlert("Failed", errorMsg, "⚠️"); // ⭐ Custom alert
     } finally {
       setLoading(false);
     }
@@ -155,13 +162,29 @@ export default function AuthScreen() {
           />
           {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
 
-          <TextInput
-            style={[styles.input, getBorderStyle('password', passwordError)]}
-            placeholder="Password" placeholderTextColor={Colors.textMuted}
-            secureTextEntry
-            onFocus={() => setFocusedInput('password')} onBlur={() => setFocusedInput(null)}
-            value={password} onChangeText={validatePassword}
-          />
+          {/* ⭐ Refactored Password Container with Eye Toggle */}
+          <View style={[styles.passwordContainer, getBorderStyle('password', passwordError)]}>
+            <TextInput
+              style={styles.passwordInputText}
+              placeholder="Password" 
+              placeholderTextColor={Colors.textMuted}
+              secureTextEntry={!showPassword}
+              onFocus={() => setFocusedInput('password')} 
+              onBlur={() => setFocusedInput(null)}
+              value={password} 
+              onChangeText={validatePassword}
+            />
+            <TouchableOpacity 
+              style={styles.eyeIcon} 
+              onPress={() => setShowPassword(!showPassword)}
+            >
+              <Ionicons 
+                name={showPassword ? "eye-outline" : "eye-off-outline"} 
+                size={22} 
+                color={Colors.textMuted} 
+              />
+            </TouchableOpacity>
+          </View>
           {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
 
           <TouchableOpacity style={styles.primaryButton} onPress={handleAuth} disabled={loading}>
@@ -199,6 +222,27 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.card, color: Colors.text, padding: 18,
     borderRadius: 14, marginBottom: 8, fontSize: 16
   },
+  
+  // ⭐ New styles for the password row
+  passwordContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.card,
+    borderRadius: 14,
+    marginBottom: 8,
+  },
+  passwordInputText: {
+    flex: 1,
+    color: Colors.text,
+    padding: 18,
+    fontSize: 16,
+  },
+  eyeIcon: {
+    paddingHorizontal: 15,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
   errorText: { color: Colors.error, fontSize: 12, marginBottom: 12, marginLeft: 4, fontWeight: '500' },
   primaryButton: {
     backgroundColor: Colors.primary, padding: 18, borderRadius: 14,

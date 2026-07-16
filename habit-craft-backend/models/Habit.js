@@ -11,7 +11,7 @@ const habitSchema = new mongoose.Schema(
   {
     userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
     title: { type: String, required: true, trim: true },
-    category: { type: String, default: "General" },
+    //category: { type: String, default: "General" },
     difficulty: { type: String, enum: ["Easy", "Medium", "Hard"], default: "Medium" },
     
     preferredTime: { type: String }, // Legacy/General preference (Morning, Afternoon, Evening)
