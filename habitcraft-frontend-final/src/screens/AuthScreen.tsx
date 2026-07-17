@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useContext } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView
+  ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, Modal
 } from 'react-native';
 import api from '../api/axiosConfig';
 import { AuthContext } from '../context/AuthContext';
-import { AlertContext } from '../context/AlertContext'; // ⭐ Added Custom Alert Context
+import { AlertContext } from '../context/AlertContext'; 
 import { Colors } from '../theme/Colors';
-import { Ionicons } from '@expo/vector-icons'; // ⭐ Added Icons for the eye toggle
+import { Ionicons } from '@expo/vector-icons'; 
 
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
@@ -18,21 +18,26 @@ export default function AuthScreen() {
   const [isLogin, setIsLogin] = useState(true);
   const [name, setName] = useState('');
 
-  // Validation States
   const [email, setEmail] = useState('');
   const [emailError, setEmailError] = useState('');
 
   const [password, setPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
-  
-  // ⭐ State for password visibility
   const [showPassword, setShowPassword] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [focusedInput, setFocusedInput] = useState<string | null>(null);
 
+  const [forgotModalVisible, setForgotModalVisible] = useState(false);
+  const [otpStep, setOtpStep] = useState<1 | 2>(1); 
+  const [resetEmail, setResetEmail] = useState('');
+  const [otpCode, setOtpCode] = useState('');
+  const [resetNewPassword, setResetNewPassword] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
+  const [showResetPassword, setShowResetPassword] = useState(false);
+
   const { login } = useContext(AuthContext);
-  const { showAlert } = useContext(AlertContext); // ⭐ Initialized custom alert
+  const { showAlert } = useContext(AlertContext); 
 
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
     clientId: '161203196741-6mvg9hok43hbtu6d5fi29s3q0q8c6prn.apps.googleusercontent.com',
@@ -51,13 +56,12 @@ export default function AuthScreen() {
       const res = await api.post('/auth/google', { idToken });
       login(res.data.token);
     } catch (error: any) {
-      showAlert("Failed", "Google authentication failed in backend.", "⚠️"); // ⭐ Custom alert
+      showAlert("Failed", "Google authentication failed in backend.", "⚠️"); 
     } finally {
       setLoading(false);
     }
   };
 
-  // --- VALIDATION LOGIC ---
   const validateEmail = (text: string) => {
     setEmail(text);
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -86,45 +90,67 @@ export default function AuthScreen() {
   };
 
   const handleAuth = async () => {
-    // 1. Check if fields are empty
     if (!email || !password || (!isLogin && !name)) {
-      showAlert("Hold up", "Please fill in all fields.", "✋"); // ⭐ Custom alert
+      showAlert("Hold up", "Please fill in all fields.", "✋"); 
       return;
     }
-    // 2. Check if there are validation errors (the red borders)
     if (emailError || passwordError) {
-      showAlert("Invalid Input", "Please fix the errors before continuing.", "⚠️"); // ⭐ Custom alert
+      showAlert("Invalid Input", "Please fix the errors before continuing.", "⚠️"); 
       return;
     }
 
     setLoading(true);
     try {
       if (isLogin) {
-        // --- LOGIN FLOW ---
         const res = await api.post('/auth/login', { email, password });
-        login(res.data.token, res.data.user); // This fires the context and jumps to Dashboard
-
+        login(res.data.token, res.data.user); 
       } else {
-        // --- SIGNUP FLOW ---
         await api.post('/auth/register', { name, email, password });
-
-        // ⭐ Custom Account Created Alert
-        showAlert(
-          "Account Created!",
-          "Your account is ready. Please log in with your new credentials.",
-          "🎉"
-        );
-
-        // Switch the UI back to Login mode
+        showAlert("Account Created!", "Your account is ready. Please log in with your new credentials.", "🎉");
         setIsLogin(true);
-        // Clear the password field for security so they have to type it again
         setPassword('');
       }
     } catch (error: any) {
       const errorMsg = error.response?.data?.message || "Something went wrong";
-      showAlert("Failed", errorMsg, "⚠️"); // ⭐ Custom alert
+      showAlert("Failed", errorMsg, "⚠️"); 
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSendOtp = async () => {
+    if (!resetEmail) return showAlert("Error", "Please enter your email address.", "⚠️");
+    setResetLoading(true);
+    try {
+      const res = await api.post('/auth/forgot-password', { email: resetEmail });
+      setOtpStep(2); 
+      showAlert("Request Received", res.data.message, "📨"); // ⭐ Matches backend generic message
+    } catch (error: any) {
+      showAlert("Error", error.response?.data?.message || "Failed to process request.", "⚠️");
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!otpCode || !resetNewPassword) return showAlert("Error", "Please fill in all fields.", "⚠️");
+    setResetLoading(true);
+    try {
+      await api.post('/auth/reset-password', { 
+        email: resetEmail, 
+        otp: otpCode, 
+        newPassword: resetNewPassword 
+      });
+      setForgotModalVisible(false);
+      setOtpStep(1);
+      setResetEmail('');
+      setOtpCode('');
+      setResetNewPassword('');
+      showAlert("Success", "Your password has been reset. You can now log in.", "✅");
+    } catch (error: any) {
+      showAlert("Error", error.response?.data?.message || "Invalid OTP or failed to reset.", "⚠️");
+    } finally {
+      setResetLoading(false);
     }
   };
 
@@ -162,7 +188,6 @@ export default function AuthScreen() {
           />
           {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
 
-          {/* ⭐ Refactored Password Container with Eye Toggle */}
           <View style={[styles.passwordContainer, getBorderStyle('password', passwordError)]}>
             <TextInput
               style={styles.passwordInputText}
@@ -174,18 +199,17 @@ export default function AuthScreen() {
               value={password} 
               onChangeText={validatePassword}
             />
-            <TouchableOpacity 
-              style={styles.eyeIcon} 
-              onPress={() => setShowPassword(!showPassword)}
-            >
-              <Ionicons 
-                name={showPassword ? "eye-outline" : "eye-off-outline"} 
-                size={22} 
-                color={Colors.textMuted} 
-              />
+            <TouchableOpacity style={styles.eyeIcon} onPress={() => setShowPassword(!showPassword)}>
+              <Ionicons name={showPassword ? "eye-outline" : "eye-off-outline"} size={22} color={Colors.textMuted} />
             </TouchableOpacity>
           </View>
           {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
+
+          {isLogin && (
+            <TouchableOpacity onPress={() => setForgotModalVisible(true)} style={styles.forgotPasswordContainer}>
+              <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+            </TouchableOpacity>
+          )}
 
           <TouchableOpacity style={styles.primaryButton} onPress={handleAuth} disabled={loading}>
             {loading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.buttonText}>{isLogin ? 'Login' : 'Sign Up'}</Text>}
@@ -207,6 +231,78 @@ export default function AuthScreen() {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      <Modal transparent visible={forgotModalVisible} animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Reset Password</Text>
+            <Text style={styles.modalMessage}>
+              {otpStep === 1 
+                ? "Enter your registered email and we will send you a 6-digit code." 
+                : "Enter the 6-digit code sent to your email and your new password."}
+            </Text>
+
+            {otpStep === 1 ? (
+              <TextInput 
+                style={styles.modalInput} 
+                placeholder="Email Address" 
+                placeholderTextColor={Colors.textMuted}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                value={resetEmail}
+                onChangeText={setResetEmail}
+              />
+            ) : (
+              <>
+                <TextInput 
+                  style={styles.modalInput} 
+                  placeholder="6-Digit OTP" 
+                  placeholderTextColor={Colors.textMuted}
+                  keyboardType="numeric"
+                  maxLength={6}
+                  value={otpCode}
+                  onChangeText={setOtpCode}
+                />
+                <View style={[styles.passwordContainer, { marginBottom: 15 }]}>
+                  <TextInput 
+                    style={styles.passwordInputText} 
+                    placeholder="New Password" 
+                    placeholderTextColor={Colors.textMuted}
+                    secureTextEntry={!showResetPassword}
+                    value={resetNewPassword}
+                    onChangeText={setResetNewPassword}
+                  />
+                  <TouchableOpacity style={styles.eyeIcon} onPress={() => setShowResetPassword(!showResetPassword)}>
+                    <Ionicons name={showResetPassword ? "eye-outline" : "eye-off-outline"} size={22} color={Colors.textMuted} />
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+
+            <View style={styles.modalActions}>
+              {/* ⭐ Properly clearing state upon cancellation */}
+              <TouchableOpacity style={styles.modalCancelBtn} onPress={() => {
+                setForgotModalVisible(false);
+                setOtpStep(1); 
+                setResetEmail('');
+                setOtpCode('');
+                setResetNewPassword('');
+                setShowResetPassword(false);
+              }}>
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.modalPrimaryBtn} 
+                onPress={otpStep === 1 ? handleSendOtp : handleResetPassword} 
+                disabled={resetLoading}
+              >
+                {resetLoading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.modalConfirmText}>{otpStep === 1 ? "Send OTP" : "Reset"}</Text>}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -223,7 +319,6 @@ const styles = StyleSheet.create({
     borderRadius: 14, marginBottom: 8, fontSize: 16
   },
   
-  // ⭐ New styles for the password row
   passwordContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -244,6 +339,10 @@ const styles = StyleSheet.create({
   },
 
   errorText: { color: Colors.error, fontSize: 12, marginBottom: 12, marginLeft: 4, fontWeight: '500' },
+  
+  forgotPasswordContainer: { alignItems: 'flex-end', marginBottom: 15, marginTop: -2 },
+  forgotPasswordText: { color: Colors.primary, fontWeight: 'bold', fontSize: 14 },
+
   primaryButton: {
     backgroundColor: Colors.primary, padding: 18, borderRadius: 14,
     alignItems: 'center', marginTop: 10, elevation: 4,
@@ -257,4 +356,15 @@ const styles = StyleSheet.create({
   toggleButton: { marginTop: 35, alignItems: 'center' },
   toggleText: { color: Colors.textMuted, fontSize: 15 },
   toggleAction: { color: Colors.primary, fontWeight: 'bold' },
+
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
+  modalContent: { backgroundColor: Colors.card, width: '100%', borderTopLeftRadius: 25, borderTopRightRadius: 25, padding: 30, borderWidth: 1, borderColor: Colors.border },
+  modalTitle: { color: Colors.text, fontSize: 24, fontWeight: 'bold', marginBottom: 10 },
+  modalMessage: { color: Colors.textMuted, fontSize: 15, marginBottom: 25, lineHeight: 22 },
+  modalInput: { backgroundColor: Colors.background, color: Colors.text, padding: 18, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, fontSize: 16, marginBottom: 15 },
+  modalActions: { flexDirection: 'row', width: '100%', gap: 15, marginTop: 10 },
+  modalCancelBtn: { flex: 1, padding: 15, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center' },
+  modalCancelText: { color: Colors.text, fontSize: 16, fontWeight: 'bold' },
+  modalPrimaryBtn: { flex: 1, padding: 15, borderRadius: 12, backgroundColor: Colors.primary, alignItems: 'center' },
+  modalConfirmText: { color: '#FFF', fontSize: 16, fontWeight: 'bold' }
 });
