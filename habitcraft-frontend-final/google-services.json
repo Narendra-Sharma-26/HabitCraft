@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "300553291530",
+    "project_id": "habitcraft-g-login",
+    "storage_bucket": "habitcraft-g-login.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:300553291530:android:81125f56394672bd9f5cf3",
+        "android_client_info": {
+          "package_name": "com.narendra.habitcraft"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "300553291530-lpr49if7mhm3njtou0iqol3h5q46f8vm.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAAwp2U-nuX7QGHoY_IywOuSGmPO-rONDw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "300553291530-lpr49if7mhm3njtou0iqol3h5q46f8vm.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
