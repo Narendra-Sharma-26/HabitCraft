@@ -1,5 +1,6 @@
 import React, { createContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { cancelAllScheduledNotifications } from '../services/NotificationService'; // ⭐ Added import
 
 export const AuthContext = createContext<any>(null);
 
@@ -50,6 +51,9 @@ export const AuthProvider = ({ children }: any) => {
     try {
       await AsyncStorage.removeItem('userToken');
       await AsyncStorage.removeItem('userData'); // Wipe user details on logout
+      
+      // ⭐ Clear all local device alarms so they don't ring after logout
+      await cancelAllScheduledNotifications(); 
       
       setUserToken(null);
       setUserData(null);

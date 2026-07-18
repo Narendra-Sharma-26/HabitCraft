@@ -16,6 +16,7 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.narendra.habitcraft",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -29,7 +30,13 @@
     },
     "plugins": [
       "expo-web-browser",
-      "@react-native-community/datetimepicker"
-    ]
+      "@react-native-community/datetimepicker",
+      "@react-native-google-signin/google-signin"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "fb5ce0b3-362d-44fa-b0a9-7df9c7dca32a"
+      }
+    }
   }
 }

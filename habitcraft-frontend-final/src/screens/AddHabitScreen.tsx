@@ -1,9 +1,13 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, ScrollView } from 'react-native';
+import React, { useState, useContext } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
 import api from '../api/axiosConfig';
 import { Colors } from '../theme/Colors';
+import { AlertContext } from '../context/AlertContext'; // ⭐ Imported Custom Alerts
+import { scheduleTaskReminders } from '../services/NotificationService'; // ⭐ Imported Notification Service
 
 export default function AddHabitScreen({ navigation }: any) {
+  const { showAlert } = useContext(AlertContext);
+
   const [title, setTitle] = useState('');
   const [difficulty, setDifficulty] = useState('Medium');
   const [preferredTime, setPreferredTime] = useState('Morning');
@@ -17,22 +21,29 @@ export default function AddHabitScreen({ navigation }: any) {
   const durationOptions: (number | 'Custom')[] = [15, 30, 45, 60, 'Custom'];
 
   const handleCreateHabit = async () => {
-    if (!title.trim()) return Alert.alert("Hold up!", "Please enter a name for your habit.");
+    if (!title.trim()) return showAlert("Hold up!", "Please enter a name for your habit.", "✋");
 
     let finalDuration = selectedDurationChip === 'Custom' ? parseInt(customDuration) : selectedDurationChip;
     if (!finalDuration || isNaN(finalDuration) || finalDuration <= 0) {
-      return Alert.alert("Invalid Duration", "Please enter a valid number of minutes.");
+      return showAlert("Invalid Duration", "Please enter a valid number of minutes.", "⚠️");
     }
 
     setLoading(true);
     try {
-      // 🗑️ Removed category from the payload
-      await api.post('/habits', {
+      const response = await api.post('/habits', {
         title, difficulty, preferredTime, duration: finalDuration 
       });
+      
+      // ⭐ Extract the AI-generated scheduled time from the response and schedule the notification
+      const createdHabit = response.data.habit || response.data;
+      if (createdHabit && createdHabit.scheduledTime) {
+         await scheduleTaskReminders(title, createdHabit.scheduledTime);
+      }
+
+      showAlert("Success", "Habit created and scheduled!", "✅");
       navigation.goBack(); 
     } catch (error: any) {
-      Alert.alert("Error", error.response?.data?.message || "Failed to create habit.");
+      showAlert("Error", error.response?.data?.message || "Failed to create habit.", "⚠️");
     } finally {
       setLoading(false);
     }
@@ -75,8 +86,6 @@ export default function AddHabitScreen({ navigation }: any) {
                 onChangeText={setTitle}
             />
         </View>
-
-        {/* 🗑️ Category section entirely removed */}
 
         <View style={styles.cardSection}>
             <Text style={styles.label}>Duration</Text>

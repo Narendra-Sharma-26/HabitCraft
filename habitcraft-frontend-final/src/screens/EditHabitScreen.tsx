@@ -4,15 +4,16 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import api from '../api/axiosConfig';
 import { Colors } from '../theme/Colors';
 import { AlertContext } from '../context/AlertContext';
+import { scheduleTaskReminders } from '../services/NotificationService'; // ⭐ Imported Notification Service
 
-// Helper to convert Date object to HH:MM string
+// Helper to convert Date object to HH:MM string[cite: 7]
 const dateToHHMM = (date: Date) => {
   const h = date.getHours().toString().padStart(2, '0');
   const m = date.getMinutes().toString().padStart(2, '0');
   return `${h}:${m}`;
 };
 
-// Helper to convert HH:MM string to Date object
+// Helper to convert HH:MM string to Date object[cite: 7]
 const hhmmToDate = (timeStr: string) => {
   if (!timeStr) return new Date();
   const [h, m] = timeStr.split(':').map(Number);
@@ -29,7 +30,7 @@ export default function EditHabitScreen({ route, navigation }: any) {
   const [duration, setDuration] = useState(habit.duration ? habit.duration.toString() : '30');
   const [difficulty, setDifficulty] = useState(habit.difficulty || 'Medium');
   
-  // Time Picker State
+  // Time Picker State[cite: 7]
   const [scheduledTime, setScheduledTime] = useState(habit.scheduledTime || '');
   const [showPicker, setShowPicker] = useState(false);
   
@@ -39,7 +40,7 @@ export default function EditHabitScreen({ route, navigation }: any) {
   const difficulties = ["Easy", "Medium", "Hard"];
 
   const handleUpdateHabit = async () => {
-    if (!title.trim()) return Alert.alert("Hold up!", "Habit title cannot be empty.");
+    if (!title.trim()) return showAlert("Hold up!", "Habit title cannot be empty.", "✋");
 
     setLoading(true);
     try {
@@ -49,16 +50,23 @@ export default function EditHabitScreen({ route, navigation }: any) {
         duration: parseInt(duration),
         scheduledTime 
       });
+
+      // ⭐ Schedule the local notifications with the newly updated time
+      if (scheduledTime) {
+        await scheduleTaskReminders(title, scheduledTime);
+      }
+
+      showAlert("Success", "Habit updated successfully.", "✅");
       navigation.goBack(); 
     } catch (error: any) {
-      Alert.alert("Error", error.response?.data?.message || "Failed to update habit.");
+      showAlert("Error", error.response?.data?.message || "Failed to update habit.", "⚠️");
     } finally {
       setLoading(false);
     }
   };
 
   const handleDeleteHabit = () => {
-    // ⭐ Single-line custom delete confirmation!
+    // Single-line custom delete confirmation![cite: 7]
     showAlert(
       "Delete Habit", 
       "Are you sure you want to permanently delete this habit?", 
@@ -73,7 +81,7 @@ export default function EditHabitScreen({ route, navigation }: any) {
           setDeleting(false);
         }
       }, 
-      true // ⭐ Pass true to show "Cancel" and "Confirm" buttons
+      true // Pass true to show "Cancel" and "Confirm" buttons[cite: 7]
     );
   };
 
