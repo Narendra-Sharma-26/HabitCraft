@@ -44,10 +44,28 @@ export default function AuthScreen() {
   const { login } = useContext(AuthContext);
   const { showAlert } = useContext(AlertContext);
 
+  // New function to clear fields when switching between Login and Sign Up
+  const handleSwitchMode = () => {
+    setIsLogin(!isLogin);
+    setName('');
+    setEmail('');
+    setEmailError('');
+    setPassword('');
+    setPasswordError('');
+  };
+
   // Native trigger for Google Sign-In flow
   const signInWithGoogle = async () => {
     try {
       await GoogleSignin.hasPlayServices();
+      
+      // Add this block to force the account picker to show every time
+      try {
+        await GoogleSignin.signOut();
+      } catch (error) {
+        // Silently ignore if there is no active session to sign out of
+      }
+
       const response = await GoogleSignin.signIn();
 
       // Handles token access compatibility across library versions safely
@@ -75,7 +93,10 @@ export default function AuthScreen() {
     setLoading(true);
     try {
       const res = await api.post('/auth/google', { idToken });
-      login(res.data.token);
+      
+      // Pass both token and user data to storage
+      login(res.data.token, res.data.user);
+      
     } catch (error: any) {
       showAlert("Failed", "Google authentication failed in backend.", "⚠️");
     } finally {
@@ -159,7 +180,7 @@ export default function AuthScreen() {
     try {
       await api.post('/auth/reset-password', {
         email: resetEmail,
-        otp: otpCode,
+        otp: otpCode, // Fixed typo: changed 'Code' to 'otpCode'
         newPassword: resetNewPassword
       });
       setForgotModalVisible(false);
@@ -192,26 +213,40 @@ export default function AuthScreen() {
 
         <View style={styles.form}>
           {!isLogin && (
-            <TextInput
-              style={[styles.input, getBorderStyle('name', '')]}
-              placeholder="Full Name" placeholderTextColor={Colors.textMuted}
-              onFocus={() => setFocusedInput('name')} onBlur={() => setFocusedInput(null)}
-              value={name} onChangeText={setName}
-            />
+            <View style={[styles.inputContainer, getBorderStyle('name', '')]}>
+              <TextInput
+                style={styles.inputText}
+                placeholder="Full Name" placeholderTextColor={Colors.textMuted}
+                onFocus={() => setFocusedInput('name')} onBlur={() => setFocusedInput(null)}
+                value={name} onChangeText={setName}
+              />
+              {name.length > 0 && (
+                <TouchableOpacity style={styles.iconButton} onPress={() => setName('')}>
+                  <Ionicons name="close-circle" size={20} color={Colors.textMuted} />
+                </TouchableOpacity>
+              )}
+            </View>
           )}
 
-          <TextInput
-            style={[styles.input, getBorderStyle('email', emailError)]}
-            placeholder="Email Address" placeholderTextColor={Colors.textMuted}
-            keyboardType="email-address" autoCapitalize="none"
-            onFocus={() => setFocusedInput('email')} onBlur={() => setFocusedInput(null)}
-            value={email} onChangeText={validateEmail}
-          />
+          <View style={[styles.inputContainer, getBorderStyle('email', emailError)]}>
+            <TextInput
+              style={styles.inputText}
+              placeholder="Email Address" placeholderTextColor={Colors.textMuted}
+              keyboardType="email-address" autoCapitalize="none"
+              onFocus={() => setFocusedInput('email')} onBlur={() => setFocusedInput(null)}
+              value={email} onChangeText={validateEmail}
+            />
+            {email.length > 0 && (
+              <TouchableOpacity style={styles.iconButton} onPress={() => validateEmail('')}>
+                <Ionicons name="close-circle" size={20} color={Colors.textMuted} />
+              </TouchableOpacity>
+            )}
+          </View>
           {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
 
-          <View style={[styles.passwordContainer, getBorderStyle('password', passwordError)]}>
+          <View style={[styles.inputContainer, getBorderStyle('password', passwordError)]}>
             <TextInput
-              style={styles.passwordInputText}
+              style={styles.inputText}
               placeholder="Password"
               placeholderTextColor={Colors.textMuted}
               secureTextEntry={!showPassword}
@@ -220,7 +255,7 @@ export default function AuthScreen() {
               value={password}
               onChangeText={validatePassword}
             />
-            <TouchableOpacity style={styles.eyeIcon} onPress={() => setShowPassword(!showPassword)}>
+            <TouchableOpacity style={styles.iconButton} onPress={() => setShowPassword(!showPassword)}>
               <Ionicons name={showPassword ? "eye-outline" : "eye-off-outline"} size={22} color={Colors.textMuted} />
             </TouchableOpacity>
           </View>
@@ -245,7 +280,7 @@ export default function AuthScreen() {
             <Text style={styles.googleButtonText}>🌐 Continue with Google</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={() => setIsLogin(!isLogin)} style={styles.toggleButton}>
+          <TouchableOpacity onPress={handleSwitchMode} style={styles.toggleButton}>
             <Text style={styles.toggleText}>
               {isLogin ? "New here? " : "Already have an account? "}
               <Text style={styles.toggleAction}>{isLogin ? 'Create Account' : 'Sign In'}</Text>
@@ -285,16 +320,16 @@ export default function AuthScreen() {
                   value={otpCode}
                   onChangeText={setOtpCode}
                 />
-                <View style={[styles.passwordContainer, { marginBottom: 15 }]}>
+                <View style={[styles.inputContainer, { marginBottom: 15 }]}>
                   <TextInput
-                    style={styles.passwordInputText}
+                    style={styles.inputText}
                     placeholder="New Password"
                     placeholderTextColor={Colors.textMuted}
                     secureTextEntry={!showResetPassword}
                     value={resetNewPassword}
                     onChangeText={setResetNewPassword}
                   />
-                  <TouchableOpacity style={styles.eyeIcon} onPress={() => setShowResetPassword(!showResetPassword)}>
+                  <TouchableOpacity style={styles.iconButton} onPress={() => setShowResetPassword(!showResetPassword)}>
                     <Ionicons name={showResetPassword ? "eye-outline" : "eye-off-outline"} size={22} color={Colors.textMuted} />
                   </TouchableOpacity>
                 </View>
@@ -335,25 +370,22 @@ const styles = StyleSheet.create({
   title: { fontSize: 34, fontWeight: 'bold', color: Colors.text },
   subtitle: { fontSize: 16, color: Colors.textMuted, marginTop: 8 },
   form: { width: '100%' },
-  input: {
-    backgroundColor: Colors.card, color: Colors.text, padding: 18,
-    borderRadius: 14, marginBottom: 8, fontSize: 16
-  },
 
-  passwordContainer: {
+  // Shared container and text styles for Name, Email, and Password fields
+  inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.card,
     borderRadius: 14,
     marginBottom: 8,
   },
-  passwordInputText: {
+  inputText: {
     flex: 1,
     color: Colors.text,
     padding: 18,
     fontSize: 16,
   },
-  eyeIcon: {
+  iconButton: {
     paddingHorizontal: 15,
     justifyContent: 'center',
     alignItems: 'center',
