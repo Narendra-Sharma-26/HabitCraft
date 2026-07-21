@@ -2,8 +2,8 @@ import React, { useState, useContext } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
 import api from '../api/axiosConfig';
 import { Colors } from '../theme/Colors';
-import { AlertContext } from '../context/AlertContext'; // ⭐ Imported Custom Alerts
-import { scheduleTaskReminders } from '../services/NotificationService'; // ⭐ Imported Notification Service
+import { AlertContext } from '../context/AlertContext'; 
+import { scheduleTaskReminders } from '../services/NotificationService'; 
 
 export default function AddHabitScreen({ navigation }: any) {
   const { showAlert } = useContext(AlertContext);
@@ -30,17 +30,24 @@ export default function AddHabitScreen({ navigation }: any) {
 
     setLoading(true);
     try {
+      // 1. Create the habit
       const response = await api.post('/habits', {
         title, difficulty, preferredTime, duration: finalDuration 
       });
       
-      // ⭐ Extract the AI-generated scheduled time from the response and schedule the notification
       const createdHabit = response.data.habit || response.data;
+      
+      // 2. Schedule the notification (Isolated) with the new Habit ID
       if (createdHabit && createdHabit.scheduledTime) {
-         await scheduleTaskReminders(title, createdHabit.scheduledTime);
+         try {
+             await scheduleTaskReminders(createdHabit._id, title, createdHabit.scheduledTime);
+         } catch (scheduleError) {
+             console.error("Habit saved, but failed to schedule reminder:", scheduleError);
+         }
       }
 
-      showAlert("Success", "Habit created and scheduled!", "✅");
+      // 3. Success
+      showAlert("Success", "Habit created!", "✅");
       navigation.goBack(); 
     } catch (error: any) {
       showAlert("Error", error.response?.data?.message || "Failed to create habit.", "⚠️");

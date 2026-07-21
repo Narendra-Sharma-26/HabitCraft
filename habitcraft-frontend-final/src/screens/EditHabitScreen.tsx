@@ -1,25 +1,37 @@
 import React, { useContext, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, ScrollView, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView, Platform } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import api from '../api/axiosConfig';
 import { Colors } from '../theme/Colors';
 import { AlertContext } from '../context/AlertContext';
-import { scheduleTaskReminders } from '../services/NotificationService'; // ⭐ Imported Notification Service
+import { scheduleTaskReminders } from '../services/NotificationService'; 
 
-// Helper to convert Date object to HH:MM string[cite: 7]
 const dateToHHMM = (date: Date) => {
   const h = date.getHours().toString().padStart(2, '0');
   const m = date.getMinutes().toString().padStart(2, '0');
   return `${h}:${m}`;
 };
 
-// Helper to convert HH:MM string to Date object[cite: 7]
 const hhmmToDate = (timeStr: string) => {
   if (!timeStr) return new Date();
   const [h, m] = timeStr.split(':').map(Number);
   const date = new Date();
   date.setHours(h || 0, m || 0, 0, 0);
   return date;
+};
+
+// ⭐ Helper to convert "HH:mm" to total minutes (matches scheduler.js)[cite: 7]
+const timeToMins = (timeString: string) => {
+  if (!timeString) return 0;
+  const [hours, minutes] = timeString.split(':').map(Number);
+  return hours * 60 + (minutes || 0);
+};
+
+// ⭐ Helper to convert total minutes back to "HH:mm"[cite: 7]
+const minsToTime = (mins: number) => {
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 };
 
 export default function EditHabitScreen({ route, navigation }: any) {
@@ -30,7 +42,6 @@ export default function EditHabitScreen({ route, navigation }: any) {
   const [duration, setDuration] = useState(habit.duration ? habit.duration.toString() : '30');
   const [difficulty, setDifficulty] = useState(habit.difficulty || 'Medium');
   
-  // Time Picker State[cite: 7]
   const [scheduledTime, setScheduledTime] = useState(habit.scheduledTime || '');
   const [showPicker, setShowPicker] = useState(false);
   
@@ -44,6 +55,79 @@ export default function EditHabitScreen({ route, navigation }: any) {
 
     setLoading(true);
     try {
+      // 🚀 UNIFIED SLOT & 10-MIN BUFFER CHECK 🚀
+      if (scheduledTime) {
+        // 1. Fetch current habits and schedule (wake/sleep/busy blocks)[cite: 4]
+        const [dashResponse, schedResponse] = await Promise.all([
+            api.get('/dashboard').catch(() => ({ data: { habits: [] } })),
+            api.get('/schedule').catch(() => ({ data: null }))
+        ]);
+        
+        const existingHabits = dashResponse.data?.habits || [];
+        const schedule = schedResponse.data;
+
+        const newStart = timeToMins(scheduledTime);
+        const newEnd = newStart + parseInt(duration);
+        const BUFFER = 10; // Exact buffer used in your AI scheduler[cite: 7]
+        
+        const blockedMins: any[] = [];
+
+        // 2. Enforce Wake/Sleep times as busy boundaries[cite: 6]
+        if (schedule) {
+            if (schedule.wakeUpTime) {
+                // Cannot schedule before (wakeUpTime + 10 mins)[cite: 7]
+                const wakeMins = timeToMins(schedule.wakeUpTime);
+                blockedMins.push({ start: 0, end: wakeMins + BUFFER, title: `Wake Up Time (${schedule.wakeUpTime})`, type: 'boundary' });
+            }
+            if (schedule.sleepTime) {
+                // Cannot schedule after (sleepTime - 10 mins)[cite: 7]
+                const sleepMins = timeToMins(schedule.sleepTime);
+                blockedMins.push({ start: sleepMins - BUFFER, end: 1440, title: `Sleep Time (${schedule.sleepTime})`, type: 'boundary' });
+            }
+            
+            // 3. Pad User's Custom Busy Slots[cite: 6, 7]
+            if (schedule.busySlots && schedule.busySlots.length > 0) {
+                schedule.busySlots.forEach((slot: any) => {
+                    blockedMins.push({
+                        start: timeToMins(slot.start) - BUFFER,
+                        end: timeToMins(slot.end) + BUFFER,
+                        title: `Busy Block`,
+                        type: 'busy slot'
+                    });
+                });
+            }
+        }
+
+        // 4. Pad Existing Habits[cite: 7]
+        existingHabits.forEach((h: any) => {
+          if (h._id === habit._id || !h.scheduledTime) return; 
+          const hStart = timeToMins(h.scheduledTime);
+          blockedMins.push({ 
+              start: hStart - BUFFER, 
+              end: hStart + (h.duration || 30) + BUFFER, 
+              title: h.title, 
+              type: 'habit' 
+          });
+        });
+
+        // 5. Check for overlapping minutes
+        // A conflict occurs if the new start time falls before a blocked end AND the new end time falls after a blocked start.
+        const conflictingSlot = blockedMins.find((slot) => {
+          return (newStart < slot.end) && (newEnd > slot.start);
+        });
+
+        // 6. If a conflict is found, abort and show an exact error message
+        if (conflictingSlot) {
+          setLoading(false);
+          return showAlert(
+            "Slot Unavailable", 
+            `This conflicts with your ${conflictingSlot.type} "${conflictingSlot.title}".\n\nRemember, you must have at least a 10-minute buffer between tasks, wake times, and sleep times!`, 
+            "⚠️"
+          );
+        }
+      }
+
+      // If the slot is completely free, proceed with the update
       await api.put(`/habits/${habit._id}`, {
         title,
         difficulty,
@@ -51,9 +135,8 @@ export default function EditHabitScreen({ route, navigation }: any) {
         scheduledTime 
       });
 
-      // ⭐ Schedule the local notifications with the newly updated time
       if (scheduledTime) {
-        await scheduleTaskReminders(title, scheduledTime);
+        await scheduleTaskReminders(habit._id, title, scheduledTime);
       }
 
       showAlert("Success", "Habit updated successfully.", "✅");
@@ -66,7 +149,6 @@ export default function EditHabitScreen({ route, navigation }: any) {
   };
 
   const handleDeleteHabit = () => {
-    // Single-line custom delete confirmation![cite: 7]
     showAlert(
       "Delete Habit", 
       "Are you sure you want to permanently delete this habit?", 
@@ -81,7 +163,7 @@ export default function EditHabitScreen({ route, navigation }: any) {
           setDeleting(false);
         }
       }, 
-      true // Pass true to show "Cancel" and "Confirm" buttons[cite: 7]
+      true 
     );
   };
 

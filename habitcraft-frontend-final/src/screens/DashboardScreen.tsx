@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useContext, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useContext, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator, ScrollView } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { AuthContext } from '../context/AuthContext';
@@ -8,7 +8,7 @@ import { Colors } from '../theme/Colors';
 import LottieView from 'lottie-react-native';
 import { requestNotificationPermission } from '../services/NotificationService'; 
 
-// ⭐ NEW: Isolated component so the button updates instantly without re-rendering the whole screen
+// ⭐ Isolated component so the button updates instantly without re-rendering the whole screen
 const HabitListItem = ({ item, navigation, onToggle }: any) => {
   // Local state provides 0ms lag on visual updates
   const [isCompleted, setIsCompleted] = useState(item.completedToday);
@@ -47,7 +47,6 @@ const HabitListItem = ({ item, navigation, onToggle }: any) => {
   );
 };
 
-
 export default function DashboardScreen({ navigation }: any) {
   const { logout, userData } = useContext(AuthContext);
   const { showAlert } = useContext(AlertContext); 
@@ -56,8 +55,8 @@ export default function DashboardScreen({ navigation }: any) {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // ⭐ NEW: Native ref for Lottie (Zero JS thread lag)
-  const confettiRef = useRef<LottieView>(null);
+  // ⭐ NEW: State to control when the celebration animation mounts
+  const [showCelebration, setShowCelebration] = useState(false);
 
   useEffect(() => {
     const setupNotifications = async () => {
@@ -129,11 +128,10 @@ export default function DashboardScreen({ navigation }: any) {
     }, [])
   );
 
-  // Updated to handle the API calls in the background while UI stays perfectly responsive
   const handleToggleComplete = async (item: any, isCompleting: boolean, revertLocalState: Function) => {
     if (isCompleting) {
-      // 🚀 Instantly trigger native Lottie animation without re-rendering the whole screen!
-      confettiRef.current?.play(0, 100); // Plays frames 0 to 100
+      // ⭐ Triggers the conditional Lottie mount and playback
+      setShowCelebration(true);
     }
 
     try {
@@ -217,16 +215,19 @@ export default function DashboardScreen({ navigation }: any) {
   return (
     <View style={styles.container}>
       
-      {/* ⭐ NEW: Native Lottie Overlay. Sits invisibly until triggered */}
-      <View style={styles.lottieContainer} pointerEvents="none">
-        <LottieView
-          ref={confettiRef}
-          source={require('../../assets/celebration.json')} // Update this path to where you saved your JSON
-          loop={false}
-          style={{ width: '100%', height: '100%' }}
-          resizeMode="cover"
-        />
-      </View>
+      {/* ⭐ Conditionally rendered Lottie Overlay. Erases the blue dot issue. */}
+      {showCelebration && (
+        <View style={styles.lottieContainer} pointerEvents="none">
+          <LottieView
+            source={require('../../assets/celebration.json')} // Update this path to where you saved your JSON
+            autoPlay={true}
+            loop={false}
+            onAnimationFinish={() => setShowCelebration(false)} // Hides it when finished
+            style={{ width: '100%', height: '100%' }}
+            resizeMode="cover"
+          />
+        </View>
+      )}
 
       <View style={styles.headerContainer}>
         <View style={styles.centerTitles}>
