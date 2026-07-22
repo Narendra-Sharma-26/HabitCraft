@@ -6,10 +6,11 @@ const {
   googleLogin,
   changePassword,
   forgotPassword,
-  resetPassword
+  resetPassword,
+  deleteUserAccount // ⭐ Imported the new delete controller
 } = require("../controllers/authController");
 
-// Import your auth middleware to protect the change-password route
+// Import your auth middleware to protect the change-password and profile routes
 // Note: Adjust the path "../middleware/authMiddleware" if your folder structure is slightly different!
 const { protect } = require("../middleware/authMiddleware");
 
@@ -22,7 +23,7 @@ router.post("/login", loginUser);
 // POST /api/auth/google
 router.post("/google", googleLogin);
 
-// ⭐ NEW SECURITY ROUTES ⭐
+// ⭐ SECURITY ROUTES ⭐
 
 // POST /api/auth/forgot-password
 router.post("/forgot-password", forgotPassword);
@@ -32,5 +33,11 @@ router.post("/reset-password", resetPassword);
 
 // POST /api/auth/change-password (Protected route)
 router.post("/change-password", protect, changePassword);
+
+
+// ⭐ DANGER ZONE ROUTE ⭐
+
+// DELETE /api/auth/profile (Protected route to permanently delete user)
+router.delete("/profile", protect, deleteUserAccount);
 
 module.exports = router;

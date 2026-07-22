@@ -1,18 +1,21 @@
-import React, { useContext, useState, useEffect } from 'react';
+import React, { useContext, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, TextInput, ActivityIndicator } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { AuthContext } from '../context/AuthContext';
-import { AlertContext } from '../context/AlertContext'; // ⭐ Imported Custom Alert Context
+import { AlertContext } from '../context/AlertContext'; 
 import { Colors } from '../theme/Colors';
 import api from '../api/axiosConfig';
 import { Ionicons } from '@expo/vector-icons'; 
+import { cancelAllScheduledNotifications } from '../services/NotificationService';
 
 export default function ProfileScreen({ navigation }: any) {
     const { logout, userData } = useContext(AuthContext); 
-    const { showAlert } = useContext(AlertContext); // ⭐ Initialized custom alert
+    const { showAlert } = useContext(AlertContext); 
     
     // Modal States
     const [logoutModalVisible, setLogoutModalVisible] = useState(false);
     const [passwordModalVisible, setPasswordModalVisible] = useState(false);
+    const [deleteModalVisible, setDeleteModalVisible] = useState(false);
     
     // Stats State
     const [userStats, setUserStats] = useState({ xp: 0, rank: null });
@@ -24,27 +27,41 @@ export default function ProfileScreen({ navigation }: any) {
     const [confirmPassword, setConfirmPassword] = useState('');
     const [passwordLoading, setPasswordLoading] = useState(false);
 
+    // Delete Form States
+    const [isDeleteChecked, setIsDeleteChecked] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
+
     // Password Visibility States
     const [showCurrent, setShowCurrent] = useState(false);
     const [showNew, setShowNew] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
 
-    useEffect(() => {
-        const fetchStats = async () => {
-            try {
-                const res = await api.get('/analytics/leaderboard');
-                if (res.data && res.data.myStats) {
-                    setUserStats({ 
-                        xp: res.data.myStats.disciplineScore || 0, 
-                        rank: res.data.myRank 
-                    });
+    // ⭐ THE FIX FOR DYNAMIC XP UPDATES: useFocusEffect updates stats every time you open the tab
+    useFocusEffect(
+        useCallback(() => {
+            let isActive = true;
+
+            const fetchStats = async () => {
+                try {
+                    const res = await api.get('/analytics/leaderboard');
+                    if (res.data && res.data.myStats && isActive) {
+                        setUserStats({ 
+                            xp: res.data.myStats.disciplineScore || 0, 
+                            rank: res.data.myRank 
+                        });
+                    }
+                } catch (error) {
+                    console.log("Failed to fetch user stats", error);
                 }
-            } catch (error) {
-                console.log("Failed to fetch user stats", error);
-            }
-        };
-        fetchStats();
-    }, []);
+            };
+            
+            fetchStats();
+
+            return () => {
+                isActive = false;
+            };
+        }, [])
+    );
 
     const validateNewPassword = (text: string) => {
         setNewPassword(text);
@@ -69,15 +86,15 @@ export default function ProfileScreen({ navigation }: any) {
 
     const handleChangePassword = async () => {
         if (!currentPassword || !newPassword || !confirmPassword) {
-            showAlert("Hold Up", "Please fill in all password fields.", "✋"); // ⭐ Updated
+            showAlert("Hold Up", "Please fill in all password fields.", "✋"); 
             return;
         }
         if (newPasswordError) {
-            showAlert("Invalid Input", "Please fix the password errors before saving.", "⚠️"); // ⭐ Updated
+            showAlert("Invalid Input", "Please fix the password errors before saving.", "⚠️"); 
             return;
         }
         if (newPassword !== confirmPassword) {
-            showAlert("Error", "Your new passwords do not match.", "⚠️"); // ⭐ Updated
+            showAlert("Error", "Your new passwords do not match.", "⚠️"); 
             return;
         }
 
@@ -85,18 +102,34 @@ export default function ProfileScreen({ navigation }: any) {
         try {
             await api.post('/auth/change-password', { currentPassword, newPassword });
             
-            showAlert("Success!", "Your password has been securely updated.", "✅"); // ⭐ Updated
+            showAlert("Success!", "Your password has been securely updated.", "✅"); 
             setPasswordModalVisible(false);
             
-            // Clear fields for security
             setCurrentPassword('');
             setNewPassword('');
             setConfirmPassword('');
             setNewPasswordError('');
         } catch (error: any) {
-            showAlert("Error", error.response?.data?.message || "Failed to update password.", "⚠️"); // ⭐ Updated
+            showAlert("Error", error.response?.data?.message || "Failed to update password.", "⚠️"); 
         } finally {
             setPasswordLoading(false);
+        }
+    };
+
+    // ⭐ NEW ACCOUNT DELETION LOGIC
+    const handleDeleteAccount = async () => {
+        setIsDeleting(true);
+        try {
+            await cancelAllScheduledNotifications();
+            await api.delete('/auth/profile'); // Calls your new auth endpoint
+            
+            setDeleteModalVisible(false);
+            showAlert("Account Deleted", "Your account and all data have been permanently removed.", "👋");
+            
+            if (logout) logout();
+        } catch (error: any) {
+            showAlert("Error", error.response?.data?.message || "Failed to delete account.", "⚠️");
+            setIsDeleting(false);
         }
     };
 
@@ -157,6 +190,8 @@ export default function ProfileScreen({ navigation }: any) {
                 </TouchableOpacity>
 
                 <Text style={[styles.sectionTitle, { marginTop: 10 }]}>Danger Zone</Text>
+                
+                {/* Logout Button */}
                 <TouchableOpacity style={styles.menuButton} onPress={() => setLogoutModalVisible(true)}>
                     <View style={[styles.menuIconBox, { backgroundColor: 'rgba(255, 107, 107, 0.1)' }]}>
                         <Text style={styles.menuIcon}>🚪</Text>
@@ -166,15 +201,29 @@ export default function ProfileScreen({ navigation }: any) {
                         <Text style={styles.menuSub}>Securely sign out of your account</Text>
                     </View>
                 </TouchableOpacity>
+
+                {/* New Delete Account Button */}
+                <TouchableOpacity style={styles.menuButton} onPress={() => {
+                    setIsDeleteChecked(false);
+                    setDeleteModalVisible(true);
+                }}>
+                    <View style={[styles.menuIconBox, { backgroundColor: 'rgba(255, 107, 107, 0.1)' }]}>
+                        <Text style={styles.menuIcon}>⚠️</Text>
+                    </View>
+                    <View style={styles.menuTextContainer}>
+                        <Text style={[styles.menuTitle, { color: Colors.error }]}>Delete Account</Text>
+                        <Text style={styles.menuSub}>Permanently remove all data</Text>
+                    </View>
+                </TouchableOpacity>
             </ScrollView>
 
+            {/* --- PASSWORD MODAL --- */}
             <Modal transparent visible={passwordModalVisible} animationType="fade">
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
                         <Text style={styles.modalTitle}>Change Password</Text>
                         
                         <View style={styles.inputContainer}>
-                            
                             <View style={styles.passwordWrapper}>
                                 <TextInput 
                                     style={styles.passwordInput} 
@@ -242,6 +291,7 @@ export default function ProfileScreen({ navigation }: any) {
                 </View>
             </Modal>
 
+            {/* --- LOGOUT MODAL --- */}
             <Modal transparent visible={logoutModalVisible} animationType="fade">
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
@@ -258,6 +308,47 @@ export default function ProfileScreen({ navigation }: any) {
                                 if (logout) logout();
                             }}>
                                 <Text style={styles.modalConfirmText}>Log Out</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* --- NEW DELETE ACCOUNT MODAL --- */}
+            <Modal transparent visible={deleteModalVisible} animationType="fade">
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <Text style={styles.modalTitleDelete}>Delete Account?</Text>
+                        
+                        <Text style={styles.modalMessage}>
+                            Your HabitCraft account will be Deleted permanently After this Action. Account Recovery is not Possible after this.
+                        </Text>
+
+                        <TouchableOpacity 
+                            style={styles.checkboxContainer} 
+                            activeOpacity={0.8}
+                            onPress={() => setIsDeleteChecked(!isDeleteChecked)}
+                        >
+                            <View style={[styles.checkbox, isDeleteChecked && styles.checkboxChecked]}>
+                                {isDeleteChecked && <Text style={styles.checkmark}>✓</Text>}
+                            </View>
+                            <Text style={styles.checkboxLabel}>I Agree, Delete Account Permanently.</Text>
+                        </TouchableOpacity>
+                        
+                        <View style={styles.modalActions}>
+                            <TouchableOpacity 
+                                style={styles.modalCancelBtn} 
+                                onPress={() => setDeleteModalVisible(false)}
+                                disabled={isDeleting}
+                            >
+                                <Text style={styles.modalCancelText}>Cancel</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity 
+                                style={[styles.modalDangerBtn, !isDeleteChecked && { backgroundColor: 'rgba(255, 107, 107, 0.4)' }]} 
+                                onPress={handleDeleteAccount}
+                                disabled={!isDeleteChecked || isDeleting}
+                            >
+                                {isDeleting ? <ActivityIndicator color="#FFF" /> : <Text style={styles.modalConfirmText}>Delete</Text>}
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -295,6 +386,7 @@ const styles = StyleSheet.create({
     modalContent: { backgroundColor: Colors.card, width: '100%', borderRadius: 20, padding: 25, alignItems: 'center', borderWidth: 1, borderColor: Colors.border },
     modalIcon: { fontSize: 40, marginBottom: 15 },
     modalTitle: { color: Colors.text, fontSize: 22, fontWeight: 'bold', marginBottom: 20 },
+    modalTitleDelete: { color: Colors.error, fontSize: 22, fontWeight: 'bold', marginBottom: 15 }, // New style for delete modal
     modalMessage: { color: Colors.textMuted, fontSize: 15, textAlign: 'center', marginBottom: 25, lineHeight: 22 },
     
     inputContainer: { width: '100%', marginBottom: 20 },
@@ -302,6 +394,13 @@ const styles = StyleSheet.create({
     passwordInput: { flex: 1, color: Colors.text, padding: 15, fontSize: 16 },
     eyeIcon: { paddingHorizontal: 15, justifyContent: 'center', alignItems: 'center' },
     errorText: { color: Colors.error, fontSize: 13, marginTop: 2, marginBottom: 12, marginLeft: 5 },
+
+    // Checkbox Styles for Delete Modal
+    checkboxContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 25, width: '100%' },
+    checkbox: { width: 22, height: 22, borderWidth: 2, borderColor: Colors.border, borderRadius: 5, marginRight: 12, justifyContent: 'center', alignItems: 'center' },
+    checkboxChecked: { backgroundColor: Colors.error, borderColor: Colors.error },
+    checkmark: { color: '#FFF', fontSize: 14, fontWeight: 'bold' },
+    checkboxLabel: { color: Colors.text, fontSize: 14, flexShrink: 1 },
 
     modalActions: { flexDirection: 'row', width: '100%', gap: 15 },
     modalCancelBtn: { flex: 1, padding: 15, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center' },
