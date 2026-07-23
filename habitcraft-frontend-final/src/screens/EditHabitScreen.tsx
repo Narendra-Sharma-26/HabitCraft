@@ -13,21 +13,19 @@ const dateToHHMM = (date: Date) => {
 };
 
 const hhmmToDate = (timeStr: string) => {
-  if (!timeStr) return new Date();
+  if (timeStr === undefined || timeStr === null || timeStr === '') return new Date();
   const [h, m] = timeStr.split(':').map(Number);
   const date = new Date();
   date.setHours(h || 0, m || 0, 0, 0);
   return date;
 };
 
-// ⭐ Helper to convert "HH:mm" to total minutes (matches scheduler.js)[cite: 7]
 const timeToMins = (timeString: string) => {
-  if (!timeString) return 0;
+  if (timeString === undefined || timeString === null || timeString === '') return null;
   const [hours, minutes] = timeString.split(':').map(Number);
-  return hours * 60 + (minutes || 0);
+  return (hours * 60) + (minutes || 0);
 };
 
-// ⭐ Helper to convert total minutes back to "HH:mm"[cite: 7]
 const minsToTime = (mins: number) => {
   const h = Math.floor(mins / 60);
   const m = mins % 60;
@@ -55,79 +53,87 @@ export default function EditHabitScreen({ route, navigation }: any) {
 
     setLoading(true);
     try {
-      // 🚀 UNIFIED SLOT & 10-MIN BUFFER CHECK 🚀
       if (scheduledTime) {
-        // 1. Fetch current habits and schedule (wake/sleep/busy blocks)[cite: 4]
-        const [dashResponse, schedResponse] = await Promise.all([
-            api.get('/dashboard').catch(() => ({ data: { habits: [] } })),
-            api.get('/schedule').catch(() => ({ data: null }))
-        ]);
-        
-        const existingHabits = dashResponse.data?.habits || [];
-        const schedule = schedResponse.data;
-
         const newStart = timeToMins(scheduledTime);
-        const newEnd = newStart + parseInt(duration);
-        const BUFFER = 10; // Exact buffer used in your AI scheduler[cite: 7]
         
-        const blockedMins: any[] = [];
-
-        // 2. Enforce Wake/Sleep times as busy boundaries[cite: 6]
-        if (schedule) {
-            if (schedule.wakeUpTime) {
-                // Cannot schedule before (wakeUpTime + 10 mins)[cite: 7]
-                const wakeMins = timeToMins(schedule.wakeUpTime);
-                blockedMins.push({ start: 0, end: wakeMins + BUFFER, title: `Wake Up Time (${schedule.wakeUpTime})`, type: 'boundary' });
-            }
-            if (schedule.sleepTime) {
-                // Cannot schedule after (sleepTime - 10 mins)[cite: 7]
-                const sleepMins = timeToMins(schedule.sleepTime);
-                blockedMins.push({ start: sleepMins - BUFFER, end: 1440, title: `Sleep Time (${schedule.sleepTime})`, type: 'boundary' });
-            }
+        if (newStart !== null) {
+            const [dashResponse, schedResponse] = await Promise.all([
+                api.get('/dashboard').catch(() => ({ data: { habits: [] } })),
+                api.get('/schedule').catch(() => ({ data: null }))
+            ]);
             
-            // 3. Pad User's Custom Busy Slots[cite: 6, 7]
-            if (schedule.busySlots && schedule.busySlots.length > 0) {
-                schedule.busySlots.forEach((slot: any) => {
-                    blockedMins.push({
-                        start: timeToMins(slot.start) - BUFFER,
-                        end: timeToMins(slot.end) + BUFFER,
-                        title: `Busy Block`,
-                        type: 'busy slot'
+            const existingHabits = dashResponse.data?.habits || [];
+            const schedule = schedResponse.data;
+
+            const newEnd = newStart + parseInt(duration);
+            const BUFFER = 10; 
+            
+            const blockedMins: any[] = [];
+
+            if (schedule) {
+                if (schedule.wakeUpTime) {
+                    const wakeMins = timeToMins(schedule.wakeUpTime);
+                    if (wakeMins !== null) {
+                        blockedMins.push({ start: 0, end: wakeMins + BUFFER, title: `Wake Up Time (${schedule.wakeUpTime})`, type: 'boundary' });
+                    }
+                }
+                
+                if (schedule.sleepTime) {
+                    let sleepMins = timeToMins(schedule.sleepTime);
+                    if (sleepMins !== null) {
+                        // ⭐ THE FIX: If sleep time is 00:00, it is the end of the day (1440 mins).
+                        // This prevents the math from returning -10 and blocking the entire day!
+                        if (sleepMins === 0) {
+                            sleepMins = 1440; 
+                        }
+                        blockedMins.push({ start: sleepMins - BUFFER, end: 1440, title: `Sleep Time (${schedule.sleepTime})`, type: 'boundary' });
+                    }
+                }
+                
+                if (schedule.busySlots && schedule.busySlots.length > 0) {
+                    schedule.busySlots.forEach((slot: any) => {
+                        const startMins = timeToMins(slot.start);
+                        const endMins = timeToMins(slot.end);
+                        if (startMins !== null && endMins !== null) {
+                            blockedMins.push({
+                                start: startMins - BUFFER,
+                                end: endMins + BUFFER,
+                                title: `Busy Block`,
+                                type: 'busy slot'
+                            });
+                        }
                     });
-                });
+                }
             }
-        }
 
-        // 4. Pad Existing Habits[cite: 7]
-        existingHabits.forEach((h: any) => {
-          if (h._id === habit._id || !h.scheduledTime) return; 
-          const hStart = timeToMins(h.scheduledTime);
-          blockedMins.push({ 
-              start: hStart - BUFFER, 
-              end: hStart + (h.duration || 30) + BUFFER, 
-              title: h.title, 
-              type: 'habit' 
-          });
-        });
+            existingHabits.forEach((h: any) => {
+              if (h._id === habit._id || !h.scheduledTime) return; 
+              const hStart = timeToMins(h.scheduledTime);
+              if (hStart !== null) {
+                  blockedMins.push({ 
+                      start: hStart - BUFFER, 
+                      end: hStart + (h.duration || 30) + BUFFER, 
+                      title: h.title, 
+                      type: 'habit' 
+                  });
+              }
+            });
 
-        // 5. Check for overlapping minutes
-        // A conflict occurs if the new start time falls before a blocked end AND the new end time falls after a blocked start.
-        const conflictingSlot = blockedMins.find((slot) => {
-          return (newStart < slot.end) && (newEnd > slot.start);
-        });
+            const conflictingSlot = blockedMins.find((slot) => {
+              return (newStart < slot.end) && (newEnd > slot.start);
+            });
 
-        // 6. If a conflict is found, abort and show an exact error message
-        if (conflictingSlot) {
-          setLoading(false);
-          return showAlert(
-            "Slot Unavailable", 
-            `This conflicts with your ${conflictingSlot.type} "${conflictingSlot.title}".\n\nRemember, you must have at least a 10-minute buffer between tasks, wake times, and sleep times!`, 
-            "⚠️"
-          );
+            if (conflictingSlot) {
+              setLoading(false);
+              return showAlert(
+                "Slot Unavailable", 
+                `This conflicts with your ${conflictingSlot.type} "${conflictingSlot.title}".\n\nRemember, you must have at least a 10-minute buffer between tasks, wake times, and sleep times!`, 
+                "⚠️"
+              );
+            }
         }
       }
 
-      // If the slot is completely free, proceed with the update
       await api.put(`/habits/${habit._id}`, {
         title,
         difficulty,

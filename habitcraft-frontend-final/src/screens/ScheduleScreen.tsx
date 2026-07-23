@@ -10,10 +10,11 @@ const screenWidth = Dimensions.get('window').width;
 
 const HABIT_COLORS = ['#6C63FF', '#4CAF50', '#FFD700', '#00D0FF', '#FF9F43', '#9b59b6', '#e84393'];
 
+// ⭐ FIXED: Strict null checking prevents "00:00" from failing as a falsy value
 const timeToMins = (timeStr: string) => {
-  if (!timeStr) return 0;
+  if (timeStr === undefined || timeStr === null || timeStr === '') return null;
   const [h, m] = timeStr.split(':').map(Number);
-  return h * 60 + m;
+  return (h * 60) + m;
 };
 
 const dateToHHMM = (date: Date) => {
@@ -23,7 +24,7 @@ const dateToHHMM = (date: Date) => {
 };
 
 const hhmmToDate = (timeStr: string) => {
-  if (!timeStr) return new Date();
+  if (timeStr === undefined || timeStr === null || timeStr === '') return new Date();
   const [h, m] = timeStr.split(':').map(Number);
   const date = new Date();
   date.setHours(h || 0, m || 0, 0, 0);
@@ -107,11 +108,9 @@ export default function ScheduleScreen({ route, navigation }: any) {
     }
   };
 
-  // ⭐ THE UX FIX: Smart default times so blocks don't perfectly overlap
   const addBusySlot = () => {
     if (busySlots.length > 0) {
       const lastSlot = busySlots[busySlots.length - 1];
-      // Default to starting exactly when the last slot ended
       setBusySlots([...busySlots, { start: lastSlot.end, end: '19:00' }]);
     } else {
       setBusySlots([...busySlots, { start: '09:00', end: '17:00' }]);
@@ -161,8 +160,9 @@ export default function ScheduleScreen({ route, navigation }: any) {
   };
 
   const generateChartData = () => {
-    const wakeMins = timeToMins(wakeUpTime);
-    const sleepMins = timeToMins(sleepTime);
+    // ⭐ FIXED: Fallback to 0 if timeToMins safely returns null for any reason
+    const wakeMins = timeToMins(wakeUpTime) ?? 0;
+    const sleepMins = timeToMins(sleepTime) ?? 0;
     
     let sleepDuration = sleepMins > wakeMins ? 1440 - (sleepMins - wakeMins) : wakeMins - sleepMins;
     
@@ -174,11 +174,11 @@ export default function ScheduleScreen({ route, navigation }: any) {
       legendFontSize: 12,
     }];
 
-    // ⭐ THE MATH FIX: Interval Merging Algorithm
+    // ⭐ FIXED: Filter out slots that return null to prevent math errors
     let intervals = busySlots
       .map(slot => [timeToMins(slot.start), timeToMins(slot.end)])
-      .filter(interval => interval[1] > interval[0]) // Ignore invalid backwards times
-      .sort((a, b) => a[0] - b[0]); // Sort chronologically
+      .filter(interval => interval[0] !== null && interval[1] !== null && interval[1]! > interval[0]!)
+      .sort((a, b) => (a[0] as number) - (b[0] as number)); 
 
     let totalBusyMins = 0;
     if (intervals.length > 0) {
@@ -187,17 +187,14 @@ export default function ScheduleScreen({ route, navigation }: any) {
         let last = merged[merged.length - 1];
         let curr = intervals[i];
         
-        if (curr[0] <= last[1]) {
-          // Intervals overlap! Combine them into one solid block.
-          last[1] = Math.max(last[1], curr[1]);
+        if (curr[0]! <= last[1]!) {
+          last[1] = Math.max(last[1] as number, curr[1] as number);
         } else {
-          // No overlap, add as a new block.
           merged.push(curr);
         }
       }
       
-      // Tally up the completely unique, merged minutes
-      totalBusyMins = merged.reduce((sum, int) => sum + (int[1] - int[0]), 0);
+      totalBusyMins = merged.reduce((sum, int) => sum + ((int[1] as number) - (int[0] as number)), 0);
     }
 
     if (totalBusyMins > 0) {
