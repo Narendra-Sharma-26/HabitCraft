@@ -1,9 +1,10 @@
 import React, { useState, useContext } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView, Switch } from 'react-native';
 import api from '../api/axiosConfig';
 import { Colors } from '../theme/Colors';
 import { AlertContext } from '../context/AlertContext'; 
-import { scheduleTaskReminders } from '../services/NotificationService'; 
+// ⭐ Import the new native alarm function
+import { scheduleTaskReminders, setNativeRepeatingAlarm } from '../services/NotificationService'; 
 
 export default function AddHabitScreen({ navigation }: any) {
   const { showAlert } = useContext(AlertContext);
@@ -15,6 +16,9 @@ export default function AddHabitScreen({ navigation }: any) {
   const [selectedDurationChip, setSelectedDurationChip] = useState<number | 'Custom'>(30);
   const [customDuration, setCustomDuration] = useState(''); 
   const [loading, setLoading] = useState(false);
+  
+  // ⭐ Add state for the physical alarm
+  const [alarmEnabled, setAlarmEnabled] = useState(true);
 
   const difficulties = ["Easy", "Medium", "Hard"];
   const times = ["Morning", "Afternoon", "Evening", "Anytime"];
@@ -30,24 +34,30 @@ export default function AddHabitScreen({ navigation }: any) {
 
     setLoading(true);
     try {
-      // 1. Create the habit
       const response = await api.post('/habits', {
         title, difficulty, preferredTime, duration: finalDuration 
       });
       
       const createdHabit = response.data.habit || response.data;
       
-      // 2. Schedule the notification (Isolated) with the new Habit ID
+      let alarmMessage = "";
+
       if (createdHabit && createdHabit.scheduledTime) {
          try {
              await scheduleTaskReminders(createdHabit._id, title, createdHabit.scheduledTime);
+             
+             // ⭐ Trigger the physical alarm if the switch is ON
+             if (alarmEnabled) {
+                 await setNativeRepeatingAlarm(createdHabit.scheduledTime, title);
+                 alarmMessage = "\n\n⏰ Physical Alarm activated! (Note: If you need to turn off or remove this alarm later, please manage it directly in your phone's Clock app).";
+             }
          } catch (scheduleError) {
              console.error("Habit saved, but failed to schedule reminder:", scheduleError);
          }
       }
 
-      // 3. Success
-      showAlert("Success", "Habit created!", "✅");
+      // ⭐ Display the updated modal message
+      showAlert("Success", `Habit created!${alarmMessage}`, "✅");
       navigation.goBack(); 
     } catch (error: any) {
       showAlert("Error", error.response?.data?.message || "Failed to create habit.", "⚠️");
@@ -119,6 +129,19 @@ export default function AddHabitScreen({ navigation }: any) {
             <Text style={styles.label}>Preferred Time ⏰</Text>
             <Text style={styles.helperText}>The AI will try to schedule your habit during this block.</Text>
             {renderChips(times, preferredTime, setPreferredTime)}
+        </View>
+
+        {/* ⭐ New Physical Alarm Toggle */}
+        <View style={[styles.cardSection, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}>
+            <View style={{ flex: 1, paddingRight: 10 }}>
+                <Text style={[styles.label, { marginBottom: 4 }]}>Physical Alarm 🔔</Text>
+                <Text style={[styles.helperText, { marginBottom: 0 }]}>Rings loudly in your native clock app</Text>
+            </View>
+            <Switch 
+                value={alarmEnabled} 
+                onValueChange={setAlarmEnabled}
+                trackColor={{ false: Colors.border, true: Colors.primary }}
+            />
         </View>
 
         <TouchableOpacity style={styles.primaryButton} onPress={handleCreateHabit} disabled={loading}>

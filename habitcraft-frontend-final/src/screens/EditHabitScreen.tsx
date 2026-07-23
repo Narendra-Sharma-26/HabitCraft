@@ -1,10 +1,11 @@
 import React, { useContext, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView, Platform, Switch } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import api from '../api/axiosConfig';
 import { Colors } from '../theme/Colors';
 import { AlertContext } from '../context/AlertContext';
-import { scheduleTaskReminders } from '../services/NotificationService'; 
+// ⭐ Import the new native alarm function
+import { scheduleTaskReminders, setNativeRepeatingAlarm } from '../services/NotificationService'; 
 
 const dateToHHMM = (date: Date) => {
   const h = date.getHours().toString().padStart(2, '0');
@@ -26,12 +27,6 @@ const timeToMins = (timeString: string) => {
   return (hours * 60) + (minutes || 0);
 };
 
-const minsToTime = (mins: number) => {
-  const h = Math.floor(mins / 60);
-  const m = mins % 60;
-  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-};
-
 export default function EditHabitScreen({ route, navigation }: any) {
   const { habit } = route.params;
   const { showAlert } = useContext(AlertContext);
@@ -43,6 +38,9 @@ export default function EditHabitScreen({ route, navigation }: any) {
   const [scheduledTime, setScheduledTime] = useState(habit.scheduledTime || '');
   const [showPicker, setShowPicker] = useState(false);
   
+  // ⭐ Add state for the physical alarm
+  const [alarmEnabled, setAlarmEnabled] = useState(true);
+
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -81,8 +79,6 @@ export default function EditHabitScreen({ route, navigation }: any) {
                 if (schedule.sleepTime) {
                     let sleepMins = timeToMins(schedule.sleepTime);
                     if (sleepMins !== null) {
-                        // ⭐ THE FIX: If sleep time is 00:00, it is the end of the day (1440 mins).
-                        // This prevents the math from returning -10 and blocking the entire day!
                         if (sleepMins === 0) {
                             sleepMins = 1440; 
                         }
@@ -141,11 +137,20 @@ export default function EditHabitScreen({ route, navigation }: any) {
         scheduledTime 
       });
 
+      let alarmMessage = "";
+
       if (scheduledTime) {
         await scheduleTaskReminders(habit._id, title, scheduledTime);
+        
+        // ⭐ Trigger the physical alarm if the switch is ON
+        if (alarmEnabled) {
+            await setNativeRepeatingAlarm(scheduledTime, title);
+            alarmMessage = "\n\n⏰ Physical Alarm activated! (Note: If you need to turn off or remove this alarm later, please manage it directly in your phone's Clock app).";
+        }
       }
 
-      showAlert("Success", "Habit updated successfully.", "✅");
+      // ⭐ Display the updated modal message
+      showAlert("Success", `Habit updated successfully.${alarmMessage}`, "✅");
       navigation.goBack(); 
     } catch (error: any) {
       showAlert("Error", error.response?.data?.message || "Failed to update habit.", "⚠️");
@@ -232,6 +237,19 @@ export default function EditHabitScreen({ route, navigation }: any) {
       <Text style={styles.label}>Duration (minutes)</Text>
       <TextInput style={styles.input} value={duration} onChangeText={setDuration} keyboardType="numeric" />
 
+      {/* ⭐ New Physical Alarm Toggle */}
+      <View style={styles.toggleRow}>
+          <View style={{ flex: 1, paddingRight: 10 }}>
+              <Text style={styles.label}>Physical Alarm 🔔</Text>
+              <Text style={styles.helperText}>Rings loudly in your native clock app</Text>
+          </View>
+          <Switch 
+              value={alarmEnabled} 
+              onValueChange={setAlarmEnabled}
+              trackColor={{ false: Colors.border, true: Colors.primary }}
+          />
+      </View>
+
       <TouchableOpacity style={styles.primaryButton} onPress={handleUpdateHabit} disabled={loading || deleting}>
         {loading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.buttonText}>Save Changes</Text>}
       </TouchableOpacity>
@@ -260,6 +278,8 @@ const styles = StyleSheet.create({
 
   timePickerButton: { backgroundColor: Colors.card, padding: 15, borderRadius: 10, alignItems: 'center', borderWidth: 1, borderColor: Colors.border },
   timeText: { color: Colors.text, fontSize: 18, fontWeight: 'bold' },
+  
+  toggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: Colors.card, padding: 15, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, marginTop: 20 },
 
   primaryButton: { backgroundColor: Colors.success, padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 40 },
   buttonText: { color: '#FFF', fontSize: 18, fontWeight: 'bold' },

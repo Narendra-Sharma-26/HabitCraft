@@ -1,4 +1,5 @@
 import * as Notifications from 'expo-notifications';
+import * as IntentLauncher from 'expo-intent-launcher';
 import { Platform } from 'react-native';
 
 // ⭐ Forces notifications to show even if the app is currently open on the screen
@@ -95,4 +96,26 @@ export const scheduleTaskReminders = async (habitId: string, taskTitle: string, 
 // 3. Clear All Notifications (Used when logging out)
 export const cancelAllScheduledNotifications = async () => {
   await Notifications.cancelAllScheduledNotificationsAsync();
+};
+
+// 4. For Alarm
+export const setNativeRepeatingAlarm = async (timeString: string, habitTitle: string) => {
+    if (Platform.OS !== 'android' || !timeString) return;
+    
+    const [hours, minutes] = timeString.split(':').map(Number);
+    
+    try {
+        await IntentLauncher.startActivityAsync('android.intent.action.SET_ALARM', {
+            extra: {
+                'android.intent.extra.alarm.HOUR': hours,
+                'android.intent.extra.alarm.MINUTES': minutes,
+                'android.intent.extra.alarm.MESSAGE': `Let's Start ${habitTitle}`,
+                // 1=Sunday, 2=Monday, 3=Tuesday, 4=Wednesday, 5=Thursday, 6=Friday, 7=Saturday
+                'android.intent.extra.alarm.DAYS': [1, 2, 3, 4, 5, 6, 7], 
+                'android.intent.extra.alarm.SKIP_UI': true, // Sets it silently without leaving HabitCraft
+            },
+        });
+    } catch (error) {
+        console.error("Failed to set native alarm:", error);
+    }
 };
