@@ -14,9 +14,12 @@ const habitSchema = new mongoose.Schema(
     //category: { type: String, default: "General" },
     difficulty: { type: String, enum: ["Easy", "Medium", "Hard"], default: "Medium" },
     
+    // ⭐ NEW: Timestamp to track when the difficulty was last changed
+    difficultyUpdatedAt: { type: Date },
+    
     preferredTime: { type: String }, // Legacy/General preference (Morning, Afternoon, Evening)
     
-    // ⭐ NEW: Specific time bounds requested by the user
+    // Specific time bounds requested by the user
     timeWindow: {
       start: { type: String }, // e.g., "09:00"
       end: { type: String },   // e.g., "12:00"
@@ -36,7 +39,7 @@ const habitSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// ⭐ Modern Validation Hook (No 'next' callback needed)
+// Modern Validation Hook (No 'next' callback needed)
 habitSchema.pre("save", function () {
   if (this.timeWindow && this.timeWindow.start && this.timeWindow.end) {
     const startMins = timeToMinutes(this.timeWindow.start);

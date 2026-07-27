@@ -4,8 +4,8 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import api from '../api/axiosConfig';
 import { Colors } from '../theme/Colors';
 import { AlertContext } from '../context/AlertContext';
-// ⭐ Import the new native alarm function
-import { scheduleTaskReminders, setNativeRepeatingAlarm } from '../services/NotificationService'; 
+// ⭐ Added cancelHabitReminders to the import
+import { scheduleTaskReminders, setNativeRepeatingAlarm, cancelHabitReminders } from '../services/NotificationService'; 
 
 const dateToHHMM = (date: Date) => {
   const h = date.getHours().toString().padStart(2, '0');
@@ -38,13 +38,34 @@ export default function EditHabitScreen({ route, navigation }: any) {
   const [scheduledTime, setScheduledTime] = useState(habit.scheduledTime || '');
   const [showPicker, setShowPicker] = useState(false);
   
-  // ⭐ Add state for the physical alarm
   const [alarmEnabled, setAlarmEnabled] = useState(true);
 
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
   const difficulties = ["Easy", "Medium", "Hard"];
+
+  // ⭐ New Handler to enforce the once-a-month restriction
+  const handleDifficultySelect = (selectedOption: string) => {
+    if (selectedOption === difficulty) return; // Ignore if they click the already selected option
+
+    // Check if difficulty was changed within the last 30 days
+    if (habit.difficultyUpdatedAt) {
+      const lastUpdate = new Date(habit.difficultyUpdatedAt);
+      const now = new Date();
+      const thirtyDaysInMs = 30 * 24 * 60 * 60 * 1000;
+
+      if (now.getTime() - lastUpdate.getTime() < thirtyDaysInMs) {
+        return showAlert(
+          "Limit Reached", 
+          "Difficulty can only be updated once per month.", 
+          "⏳"
+        );
+      }
+    }
+
+    setDifficulty(selectedOption);
+  };
 
   const handleUpdateHabit = async () => {
     if (!title.trim()) return showAlert("Hold up!", "Habit title cannot be empty.", "✋");
@@ -142,14 +163,12 @@ export default function EditHabitScreen({ route, navigation }: any) {
       if (scheduledTime) {
         await scheduleTaskReminders(habit._id, title, scheduledTime);
         
-        // ⭐ Trigger the physical alarm if the switch is ON
         if (alarmEnabled) {
             await setNativeRepeatingAlarm(scheduledTime, title);
             alarmMessage = "\n\n⏰ Physical Alarm activated! (Note: If you need to turn off or remove this alarm later, please manage it directly in your phone's Clock app).";
         }
       }
 
-      // ⭐ Display the updated modal message
       showAlert("Success", `Habit updated successfully.${alarmMessage}`, "✅");
       navigation.goBack(); 
     } catch (error: any) {
@@ -168,6 +187,10 @@ export default function EditHabitScreen({ route, navigation }: any) {
         setDeleting(true);
         try {
           await api.delete(`/habits/${habit._id}`);
+          
+          // ⭐ Clear phantom notifications immediately after successful deletion
+          await cancelHabitReminders(habit._id);
+          
           navigation.goBack();
         } catch (error) {
           showAlert("Error", "Failed to delete habit.", "⚠️");
@@ -216,7 +239,8 @@ export default function EditHabitScreen({ route, navigation }: any) {
       <TextInput style={styles.input} value={title} onChangeText={setTitle} />
 
       <Text style={styles.label}>Difficulty</Text>
-      {renderChips(difficulties, difficulty, setDifficulty)}
+      {/* ⭐ Swapped basic setDifficulty for handleDifficultySelect */}
+      {renderChips(difficulties, difficulty, handleDifficultySelect)}
 
       <Text style={[styles.label, { marginTop: 25 }]}>Scheduled Time</Text>
       <Text style={styles.helperText}>Override the AI's suggested time here.</Text>
@@ -237,7 +261,6 @@ export default function EditHabitScreen({ route, navigation }: any) {
       <Text style={styles.label}>Duration (minutes)</Text>
       <TextInput style={styles.input} value={duration} onChangeText={setDuration} keyboardType="numeric" />
 
-      {/* ⭐ New Physical Alarm Toggle */}
       <View style={styles.toggleRow}>
           <View style={{ flex: 1, paddingRight: 10 }}>
               <Text style={styles.label}>Physical Alarm 🔔</Text>

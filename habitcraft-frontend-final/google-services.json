@@ -14,6 +14,22 @@
       },
       "oauth_client": [
         {
+          "client_id": "300553291530-e9p02tcps5bbi97g8dv6k4nf7i4vcv34.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.narendra.habitcraft",
+            "certificate_hash": "999204e4abcf935a2cdc6630a128f2ecec589ba0"
+          }
+        },
+        {
+          "client_id": "300553291530-qdrmhekmds764f9dg8hrumidahgt2ui9.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.narendra.habitcraft",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+          }
+        },
+        {
           "client_id": "300553291530-lpr49if7mhm3njtou0iqol3h5q46f8vm.apps.googleusercontent.com",
           "client_type": 3
         }

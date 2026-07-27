@@ -111,11 +111,26 @@ export const setNativeRepeatingAlarm = async (timeString: string, habitTitle: st
                 'android.intent.extra.alarm.MINUTES': minutes,
                 'android.intent.extra.alarm.MESSAGE': `Let's Start ${habitTitle}`,
                 // 1=Sunday, 2=Monday, 3=Tuesday, 4=Wednesday, 5=Thursday, 6=Friday, 7=Saturday
-                'android.intent.extra.alarm.DAYS': [1, 2, 3, 4, 5, 6, 7], 
-                'android.intent.extra.alarm.SKIP_UI': true, // Sets it silently without leaving HabitCraft
+                // 'android.intent.extra.alarm.DAYS': [1, 2, 3, 4, 5, 6, 7], 
+                // 'android.intent.extra.alarm.SKIP_UI': true, // Sets it silently without leaving HabitCraft
             },
         });
     } catch (error) {
         console.error("Failed to set native alarm:", error);
     }
+};
+
+// 5. Cancel Specific Habit Reminders (Call this when a user deletes a habit)
+export const cancelHabitReminders = async (habitId: string) => {
+  try {
+    // Cancel the 10-minute pre-commitment reminder
+    await Notifications.cancelScheduledNotificationAsync(`${habitId}-10m`);
+    
+    // Cancel the 1-minute execution reminder
+    await Notifications.cancelScheduledNotificationAsync(`${habitId}-1m`);
+    
+    console.log(`[Habit: ${habitId}] Local reminders successfully cancelled.`);
+  } catch (error) {
+    console.error(`Failed to cancel reminders for habit ${habitId}:`, error);
+  }
 };

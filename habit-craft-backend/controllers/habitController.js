@@ -20,7 +20,7 @@ const addHabit = async (req, res) => {
     const existingHabits = await Habit.find({ userId, isActive: true, isArchived: false });
     const activeCount = existingHabits.length;
 
-    // ⭐ CALCULATE CONSISTENCY FOR THE LIMIT CHECK
+    // CALCULATE CONSISTENCY FOR THE LIMIT CHECK
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 29);
     const logsLast30Days = await HabitLog.find({
@@ -32,7 +32,7 @@ const addHabit = async (req, res) => {
         consistency = Math.round((logsLast30Days.length / (activeCount * 30)) * 100);
     }
 
-    // ⭐ DYNAMIC HABIT LIMIT LOGIC
+    // DYNAMIC HABIT LIMIT LOGIC
     if (activeCount >= 10) {
         return res.status(400).json({ message: "Absolute limit reached. You can only have 10 active habits." });
     } else if (activeCount >= 7 && consistency <= 95) {
@@ -170,7 +170,23 @@ const editHabit = async (req, res) => {
 
     // Update fields
     if (title) habit.title = title;
-    if (difficulty) habit.difficulty = difficulty;
+    
+    // ⭐ NEW: Backend logic to securely enforce the 30-day difficulty limit
+    if (difficulty && habit.difficulty !== difficulty) {
+      if (habit.difficultyUpdatedAt) {
+        const lastUpdate = new Date(habit.difficultyUpdatedAt);
+        const now = new Date();
+        const thirtyDaysInMs = 30 * 24 * 60 * 60 * 1000;
+        
+        if (now.getTime() - lastUpdate.getTime() < thirtyDaysInMs) {
+          return res.status(400).json({ message: "Difficulty can only be updated once per month." });
+        }
+      }
+      
+      habit.difficulty = difficulty;
+      habit.difficultyUpdatedAt = new Date();
+    }
+
     if (duration) habit.duration = Number(duration);
     
     // Allow user to manually override the AI's time!
