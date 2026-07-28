@@ -2,6 +2,9 @@
 ImportantThings.docx
 *.docx
 
+# To ignore .env
+.env
+
 
 # Ignore dependencies
 node_modules/
