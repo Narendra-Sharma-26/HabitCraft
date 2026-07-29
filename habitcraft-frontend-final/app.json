@@ -16,6 +16,7 @@
       "supportsTablet": true
     },
     "android": {
+      "versionCode": 2,
       "package": "com.narendra.habitcraft",
       "permissions": [
         "SCHEDULE_EXACT_ALARM",

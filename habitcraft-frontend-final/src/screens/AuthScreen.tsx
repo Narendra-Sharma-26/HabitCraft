@@ -15,7 +15,8 @@ import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-si
 // Configure Google Sign-In globally at the file level
 // Note: We use the WEB Client ID here so that the backend can verify the token.
 GoogleSignin.configure({
-  webClientId: '300553291530-lpr49if7mhm3njtou0iqol3h5q46f8vm.apps.googleusercontent.com',
+// webClientId: '300553291530-lpr49if7mhm3njtou0iqol3h5q46f8vm.apps.googleusercontent.com',
+  webClientId: '300553291530-jks22imuhn5k71joav9oac6ojbvvis4p.apps.googleusercontent.com',
   offlineAccess: true,
 });
 

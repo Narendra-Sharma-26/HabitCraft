@@ -90,7 +90,7 @@ export const scheduleTaskReminders = async (habitId: string, taskTitle: string, 
     } as any, 
   });
   
-  console.log(`[Habit: ${habitId}] Reminders queued accurately for ${tenMinBefore.hour}:${tenMinBefore.minute} and ${oneMinBefore.hour}:${oneMinBefore.minute}`);
+  //console.log(`[Habit: ${habitId}] Reminders queued accurately for ${tenMinBefore.hour}:${tenMinBefore.minute} and ${oneMinBefore.hour}:${oneMinBefore.minute}`);
 };
 
 // 3. Clear All Notifications (Used when logging out)
