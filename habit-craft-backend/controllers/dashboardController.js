@@ -1,7 +1,7 @@
 const Habit = require("../models/Habit");
 const HabitLog = require("../models/HabitLog");
 const User = require("../models/User");
-const Schedule = require("../models/Schedule"); // ⭐ Required for the onboarding check
+const Schedule = require("../models/Schedule"); 
 const { calculateWeeklyAnalytics } = require("../utils/analytics");
 const { getTodayIST, getPastISTDate } = require("../utils/dateHelper");
 
@@ -15,16 +15,17 @@ const getDashboard = async (req, res) => {
         const schedule = await Schedule.findOne({ userId });
         const hasSchedule = !!schedule;
         
-        // ⭐ Use exact IST date strings
         const todayStr = getTodayIST();
         const yesterdayStr = getPastISTDate(1);
 
-        // 1️⃣ Get active habits
         const habits = await Habit.find({ userId, isActive: true });
         
+        // ⭐ THE FIX: Changed $in to $gte. 
+        // This safely captures both string ("2026-08-02") and Date objects ("2026-08-02T10:30Z") 
+        // from yesterday midnight onwards, preventing the logs from coming back empty.
         const recentLogs = await HabitLog.find({
             userId,
-            date: { $in: [todayStr, yesterdayStr] },
+            date: { $gte: yesterdayStr },
             completed: true
         });
 
@@ -39,10 +40,9 @@ const getDashboard = async (req, res) => {
         const habitsWithStatus = await Promise.all(habits.map(async (habit) => {
             const completedToday = todayLogs.some(log => log.habitId.toString() === habit._id.toString());
             
-            // If the streak is alive today OR yesterday, keep it. Otherwise, it's 0.
             const actualStreak = aliveHabitIds.has(habit._id.toString()) ? (habit.streak || 0) : 0;
 
-            // ⭐ SELF-HEAL DB: Silently fix frozen streaks, but safely ignore timezone hiccups
+            // ⭐ SELF-HEAL DB: Will now evaluate correctly because recentLogs is accurate
             if ((habit.streak || 0) > 0 && actualStreak === 0 && !completedToday) {
                 habit.streak = 0;
                 await habit.save();
@@ -55,12 +55,10 @@ const getDashboard = async (req, res) => {
             };
         }));
 
-        // 2️⃣ Calculate Best Streak & XP
         const bestStreak = habitsWithStatus.reduce((max, habit) => Math.max(max, habit.streak || 0), 0);
         const user = await User.findById(userId).select("disciplineScore");
 
-        // 3️⃣ CALCULATE 30-DAY CONSISTENCY
-        const thirtyDaysAgoStr = getPastISTDate(29); // 29 days ago + today = 30 days
+        const thirtyDaysAgoStr = getPastISTDate(29); 
 
         const logsLast30Days = await HabitLog.find({
             userId,
@@ -97,7 +95,6 @@ const getDashboardInsights = async (req, res) => {
     const analytics = await calculateWeeklyAnalytics(userId);
     const consistency = analytics.overall.consistencyPercent;
 
-    // 🧠 AI-style interpretation logic
     let riskLevel = "low";
     let summary = "";
     let nudge = "";
