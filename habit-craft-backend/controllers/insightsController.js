@@ -1,5 +1,6 @@
 const Habit = require("../models/Habit");
 const HabitLog = require("../models/HabitLog");
+const { getTodayIST, getPastISTDate } = require("./dateHelper"); // ⭐ Added IST helpers
 
 // @desc    Get AI Coach Insights
 // @route   GET /api/dashboard/insights
@@ -8,13 +9,9 @@ const getInsights = async (req, res) => {
   try {
     const userId = req.user._id;
 
-    // Get last 7 days range
-    const today = new Date();
-    const todayStr = today.toISOString().split("T")[0];
-
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(today.getDate() - 6);
-    const sevenDaysAgoStr = sevenDaysAgo.toISOString().split("T")[0];
+    // ⭐ THE FIX: Use exact IST date strings
+    const todayStr = getTodayIST();
+    const sevenDaysAgoStr = getPastISTDate(6); // 6 days ago + today = 7 days
 
     // Get active habits
     const habits = await Habit.find({
@@ -49,23 +46,27 @@ const getInsights = async (req, res) => {
         (log) => log.habitId.toString() === habit._id.toString()
       );
 
-      const completedDays = habitLogs.length;
-      const consistency = Math.round((completedDays / 7) * 100);
+      // ⭐ Fix: Use a Set to ensure we only count unique days
+      const uniqueDays = new Set(habitLogs.map(log => {
+        return typeof log.date === 'string' ? log.date.split("T")[0] : log.date.toISOString().split("T")[0];
+      })).size;
 
-      if (completedDays > max) {
-        max = completedDays;
+      const consistency = Math.round((uniqueDays / 7) * 100);
+
+      if (uniqueDays > max) {
+        max = uniqueDays;
         bestHabit = habit.title;
       }
 
-      if (completedDays < min) {
-        min = completedDays;
+      if (uniqueDays < min) {
+        min = uniqueDays;
         weakHabit = habit.title;
       }
 
       habitInsights.push({
         habitId: habit._id,
         title: habit.title,
-        completedDays,
+        completedDays: uniqueDays,
         consistencyPercent: consistency,
       });
     }

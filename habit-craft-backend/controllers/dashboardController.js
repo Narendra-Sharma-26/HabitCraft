@@ -3,6 +3,7 @@ const HabitLog = require("../models/HabitLog");
 const User = require("../models/User");
 const Schedule = require("../models/Schedule"); // ⭐ Required for the onboarding check
 const { calculateWeeklyAnalytics } = require("../utils/analytics");
+const { getTodayIST, getPastISTDate } = require("../utils/dateHelper");
 
 // @desc    Get dashboard data
 // @route   GET /api/dashboard
@@ -14,20 +15,9 @@ const getDashboard = async (req, res) => {
         const schedule = await Schedule.findOne({ userId });
         const hasSchedule = !!schedule;
         
-        // ⭐ THE MIDNIGHT TIMEZONE FIX ⭐
-        // standard .toISOString() uses UTC time. 
-        // This helper forces the date string into your local timezone so streaks don't reset at midnight!
-        const getLocalDateString = (d) => {
-            const offset = d.getTimezoneOffset() * 60000; 
-            return new Date(d.getTime() - offset).toISOString().split("T")[0];
-        };
-
-        const today = new Date();
-        const yesterday = new Date(today);
-        yesterday.setDate(yesterday.getDate() - 1);
-        
-        const todayStr = getLocalDateString(today);
-        const yesterdayStr = getLocalDateString(yesterday);
+        // ⭐ Use exact IST date strings
+        const todayStr = getTodayIST();
+        const yesterdayStr = getPastISTDate(1);
 
         // 1️⃣ Get active habits
         const habits = await Habit.find({ userId, isActive: true });
@@ -38,10 +28,9 @@ const getDashboard = async (req, res) => {
             completed: true
         });
 
-        // Safely format the log date to prevent Date Object crashes
+        // Safely format the log date 
         const formatLogDate = (log) => {
-            if (typeof log.date === 'string') return log.date.split("T")[0];
-            return getLocalDateString(new Date(log.date));
+            return typeof log.date === 'string' ? log.date.split("T")[0] : log.date.toISOString().split("T")[0];
         };
 
         const todayLogs = recentLogs.filter(log => formatLogDate(log) === todayStr);
@@ -71,9 +60,7 @@ const getDashboard = async (req, res) => {
         const user = await User.findById(userId).select("disciplineScore");
 
         // 3️⃣ CALCULATE 30-DAY CONSISTENCY
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 29);
-        const thirtyDaysAgoStr = getLocalDateString(thirtyDaysAgo);
+        const thirtyDaysAgoStr = getPastISTDate(29); // 29 days ago + today = 30 days
 
         const logsLast30Days = await HabitLog.find({
             userId,

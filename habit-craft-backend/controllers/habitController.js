@@ -1,8 +1,8 @@
 const Habit = require("../models/Habit");
 const HabitLog = require("../models/HabitLog");
-
 const Schedule = require("../models/Schedule");
 const { findAvailableTime } = require("../utils/scheduler");
+const { getTodayIST, getPastISTDate } = require("./dateHelper"); // ⭐ Added IST helpers
 
 // @desc    Add new habit
 // @route   POST /api/habits
@@ -20,16 +20,22 @@ const addHabit = async (req, res) => {
     const existingHabits = await Habit.find({ userId, isActive: true, isArchived: false });
     const activeCount = existingHabits.length;
 
-    // CALCULATE CONSISTENCY FOR THE LIMIT CHECK
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 29);
+    // ⭐ THE FIX: Use IST date helper for the 30-day window calculation
+    const thirtyDaysAgoStr = getPastISTDate(29); // 29 days ago + today = 30 days
     const logsLast30Days = await HabitLog.find({
-        userId, date: { $gte: thirtyDaysAgo.toISOString().split("T")[0] }, completed: true
+        userId, 
+        date: { $gte: thirtyDaysAgoStr }, 
+        completed: true
     });
     
     let consistency = 0;
     if (activeCount > 0) {
-        consistency = Math.round((logsLast30Days.length / (activeCount * 30)) * 100);
+        // Use a Set to ensure duplicate daily logs don't inflate consistency (optional but recommended safety net)
+        const uniqueDays = new Set(logsLast30Days.map(log => {
+           return typeof log.date === 'string' ? log.date.split("T")[0] : log.date.toISOString().split("T")[0];
+        })).size;
+        
+        consistency = Math.round((uniqueDays / (activeCount * 30)) * 100);
     }
 
     // DYNAMIC HABIT LIMIT LOGIC
@@ -88,7 +94,8 @@ const toggleHabit = async (req, res) => {
       return res.status(404).json({ message: "Habit not found" });
     }
 
-    const currentMonth = new Date().toISOString().slice(0, 7); // "YYYY-MM"
+    // ⭐ THE FIX: Slice the IST helper string to get an accurate "YYYY-MM"
+    const currentMonth = getTodayIST().slice(0, 7); 
 
     // Reset counter if new month
     if (habit.pauseMonth !== currentMonth) {

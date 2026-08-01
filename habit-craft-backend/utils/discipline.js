@@ -1,13 +1,12 @@
 const HabitLog = require("../models/HabitLog");
+const { getPastISTDate } = require("./dateHelper"); // Import your IST helper
 
 const calculateDisciplineScore = async (userId) => {
-  const today = new Date();
   const last7Days = [];
 
+  // ⭐ Fix: Use the IST helper to generate the last 7 days (0 = today, up to 6 days ago)
   for (let i = 0; i < 7; i++) {
-    const d = new Date();
-    d.setDate(today.getDate() - i);
-    last7Days.push(d.toISOString().split("T")[0]);
+    last7Days.push(getPastISTDate(i));
   }
 
   const logs = await HabitLog.find({
@@ -16,8 +15,12 @@ const calculateDisciplineScore = async (userId) => {
     completed: true,
   });
 
-  const completedDays = logs.length;
-  const score = Math.round((completedDays / 7) * 100);
+  // ⭐ Protect against duplicate daily logs artificially inflating the score
+  const uniqueDays = new Set(logs.map(log => {
+    return typeof log.date === 'string' ? log.date.split("T")[0] : log.date.toISOString().split("T")[0];
+  })).size;
+
+  const score = Math.round((uniqueDays / 7) * 100);
 
   return score;
 };

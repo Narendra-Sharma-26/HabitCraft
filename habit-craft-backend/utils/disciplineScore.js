@@ -1,5 +1,6 @@
 const Habit = require("../models/Habit");
 const HabitLog = require("../models/HabitLog");
+const { getTodayIST } = require("./dateHelper"); // ⭐ Import your IST helper
 
 const difficultyPoints = {
   Easy: 5,
@@ -8,7 +9,8 @@ const difficultyPoints = {
 };
 
 const calculateDisciplineScore = async (userId) => {
-  const today = new Date().toISOString().split("T")[0];
+  // ⭐ Fix: Enforce exact IST date string
+  const today = getTodayIST();
 
   // Get all active habits
   const habits = await Habit.find({ userId, isActive: true });

@@ -1,5 +1,6 @@
 const Habit = require("../models/Habit");
 const HabitLog = require("../models/HabitLog");
+const { getPastISTDate } = require("./dateHelper"); // ⭐ Added IST helper
 
 // @desc    Get health score of all habits
 // @route   GET /api/habits/health
@@ -11,10 +12,9 @@ const getHabitHealthScores = async (req, res) => {
     // 1. Fetch only active habits for this user
     const habits = await Habit.find({ userId, isActive: true });
 
-    // 2. Define the 30-day rolling window
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().split("T")[0];
+    // 2. Define the 30-day rolling window in exact IST
+    // ⭐ THE FIX: Replaced UTC Date math with the IST helper
+    const thirtyDaysAgoStr = getPastISTDate(30); 
 
     // 3. Calculate health for each habit concurrently
     const healthData = await Promise.all(habits.map(async (habit) => {
@@ -27,6 +27,7 @@ const getHabitHealthScores = async (req, res) => {
       });
 
       // Calculate how many days the habit has actually existed (max 30)
+      // Note: Absolute millisecond math is timezone-agnostic, so this remains safe.
       const habitCreationDate = new Date(habit.createdAt);
       const daysSinceCreation = Math.floor((new Date() - habitCreationDate) / (1000 * 60 * 60 * 24)) + 1;
       const expectedDays = Math.max(1, Math.min(daysSinceCreation, 30)); // Ensure we never divide by 0

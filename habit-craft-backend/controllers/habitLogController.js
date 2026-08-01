@@ -1,7 +1,7 @@
 const HabitLog = require("../models/HabitLog");
 const Habit = require("../models/Habit");
 const User = require("../models/User");
-const { getTodayIST } = require("../utils/dateHelper");
+const { getTodayIST, getPastISTDate } = require("../utils/dateHelper");
 
 const difficultyPoints = {
   Easy: 5,
@@ -35,10 +35,8 @@ const completeHabit = async (req, res) => {
     });
 
     // ⭐ THE MIDNIGHT TIMEZONE FIX FOR STREAKS ⭐
-    // Parse the IST string directly so it doesn't drift into UTC timezone
-    const todayObj = new Date(today);
-    todayObj.setDate(todayObj.getDate() - 1);
-    const yesterdayDate = todayObj.toISOString().split("T")[0];
+    // Use the safe helper instead of manipulating UTC Date objects
+    const yesterdayDate = getPastISTDate(1);
 
     const yesterdayLog = await HabitLog.findOne({ habitId, date: yesterdayDate });
     habit.streak = yesterdayLog ? habit.streak + 1 : 1;

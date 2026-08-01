@@ -22,7 +22,8 @@
         "SCHEDULE_EXACT_ALARM",
         "USE_EXACT_ALARM",
         "RECEIVE_BOOT_COMPLETED",
-        "com.android.alarm.permission.SET_ALARM"
+        "com.android.alarm.permission.SET_ALARM",
+        "POST_NOTIFICATIONS"
       ],
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {

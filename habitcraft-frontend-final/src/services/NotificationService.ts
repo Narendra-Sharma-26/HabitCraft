@@ -65,12 +65,12 @@ export const scheduleTaskReminders = async (habitId: string, taskTitle: string, 
       sound: true,
     },
     trigger: {
-      type: Notifications.SchedulableTriggerInputTypes.DAILY, // 🚨 THE CRUCIAL FIX
+      
       channelId: 'default', 
       hour: tenMinBefore.hour,
       minute: tenMinBefore.minute,
       repeats: true, 
-    } as any, 
+    }, 
   });
 
   // ⏰ Schedule 1 Minute Before (Execution)
@@ -82,12 +82,12 @@ export const scheduleTaskReminders = async (habitId: string, taskTitle: string, 
       sound: true,
     },
     trigger: {
-      type: Notifications.SchedulableTriggerInputTypes.DAILY, // 🚨 THE CRUCIAL FIX
+      
       channelId: 'default', 
       hour: oneMinBefore.hour,
       minute: oneMinBefore.minute,
       repeats: true,
-    } as any, 
+    }, 
   });
   
   //console.log(`[Habit: ${habitId}] Reminders queued accurately for ${tenMinBefore.hour}:${tenMinBefore.minute} and ${oneMinBefore.hour}:${oneMinBefore.minute}`);

@@ -30,8 +30,11 @@ const generateAINudge = async (userId) => {
       log => log.habitId.toString() === habit._id.toString()
     );
 
-    // FIX: Map logs to their dates and use a Set to find unique days (bypassing multiple logs)
-    const uniqueDays = new Set(habitLogs.map(log => log.date)).size;
+    // FIX: Format log date to ensure exact YYYY-MM-DD string matching for the Set
+    const uniqueDays = new Set(habitLogs.map(log => {
+      return typeof log.date === 'string' ? log.date.split("T")[0] : log.date.toISOString().split("T")[0];
+    })).size;
+    
     const consistency = (uniqueDays / 7) * 100;
 
     if (consistency < lowestConsistency) {

@@ -23,8 +23,9 @@ const checkAndLogNotifications = async () => {
         // Track users so we don't spam them with multiple daily nudges if they have multiple habits
         const processedUsers = new Set();
         const todayStr = getTodayIST();
-        // Create a proper midnight date object for the idempotency guard
-        const startOfToday = new Date(`${todayStr}T00:00:00.000Z`);
+        
+        // ⭐ THE FIX: Use "+05:30" to create a strict Midnight IST Date object
+        const startOfToday = new Date(`${todayStr}T00:00:00+05:30`);
 
         for (let habit of habits) {
             try {
@@ -64,15 +65,16 @@ const checkAndLogNotifications = async () => {
                     const [hour, minute] = habit.scheduledTime.split(":").map(Number);
 
                     // ⏰ Pre-commitment reminder (10 min before)
-                    // We construct a dummy date object to easily subtract 10 minutes safely
-                    const preCommitmentTime = new Date();
-                    preCommitmentTime.setHours(hour);
-                    preCommitmentTime.setMinutes(minute - 10);
+                    // Calculate exactly 10 mins prior using math, skipping UTC Date objects completely
+                    let preHour = hour;
+                    let preMinute = minute - 10;
+                    
+                    if (preMinute < 0) {
+                        preMinute += 60;
+                        preHour = preHour - 1 < 0 ? 23 : preHour - 1;
+                    }
 
-                    if (
-                        currentHour === preCommitmentTime.getHours() &&
-                        currentMinute === preCommitmentTime.getMinutes()
-                    ) {
+                    if (currentHour === preHour && currentMinute === preMinute) {
                         const minuteAgo = new Date(Date.now() - 60 * 1000);
 
                         const alreadyLogged = await NotificationLog.findOne({

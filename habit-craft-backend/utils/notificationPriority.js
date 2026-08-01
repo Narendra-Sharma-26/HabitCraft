@@ -17,8 +17,9 @@ const decideNotificationPriority = async (userId) => {
   const yesterdayStr = getPastISTDate(1);
   const todayStr = getTodayIST();
   
-  // Create a strict midnight timestamp for today in IST
-  const startOfToday = new Date(`${todayStr}T00:00:00.000Z`);
+  // ⭐ THE TIMEZONE FIX
+  // Using "+05:30" instead of "Z" explicitly creates a Midnight IST Date object.
+  const startOfToday = new Date(`${todayStr}T00:00:00+05:30`);
 
   // ===============================
   // 1️⃣ Check Eligibility (Fix for new users/habits)

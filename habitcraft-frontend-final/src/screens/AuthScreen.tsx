@@ -31,6 +31,11 @@ export default function AuthScreen() {
   const [passwordError, setPasswordError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
+  // Added state for Confirm Password
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [confirmPasswordError, setConfirmPasswordError] = useState('');
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
   const [loading, setLoading] = useState(false);
   const [focusedInput, setFocusedInput] = useState<string | null>(null);
 
@@ -45,7 +50,7 @@ export default function AuthScreen() {
   const { login } = useContext(AuthContext);
   const { showAlert } = useContext(AlertContext);
 
-  // New function to clear fields when switching between Login and Sign Up
+  // Clears all fields including the new confirm password ones
   const handleSwitchMode = () => {
     setIsLogin(!isLogin);
     setName('');
@@ -53,6 +58,8 @@ export default function AuthScreen() {
     setEmailError('');
     setPassword('');
     setPasswordError('');
+    setConfirmPassword('');
+    setConfirmPasswordError('');
   };
 
   // Native trigger for Google Sign-In flow
@@ -115,6 +122,16 @@ export default function AuthScreen() {
 
   const validatePassword = (text: string) => {
     setPassword(text);
+    
+    // Check if the user is changing the original password while the confirm password is already filled
+    if (!isLogin && confirmPassword.length > 0) {
+      if (text !== confirmPassword) {
+        setConfirmPasswordError('Passwords do not match.');
+      } else {
+        setConfirmPasswordError('');
+      }
+    }
+
     if (!text) {
       setPasswordError('');
       return;
@@ -132,13 +149,35 @@ export default function AuthScreen() {
     }
   };
 
+  // New function to handle Confirm Password validation
+  const validateConfirmPassword = (text: string) => {
+    setConfirmPassword(text);
+    if (!text) {
+      setConfirmPasswordError('');
+      return;
+    }
+    if (text !== password) {
+      setConfirmPasswordError('Passwords do not match.');
+    } else {
+      setConfirmPasswordError('');
+    }
+  };
+
   const handleAuth = async () => {
-    if (!email || !password || (!isLogin && !name)) {
+    if (!email || !password || (!isLogin && (!name || !confirmPassword))) {
       showAlert("Hold up", "Please fill in all fields.", "✋");
       return;
     }
-    if (emailError || passwordError) {
+    
+    if (emailError || passwordError || (!isLogin && confirmPasswordError)) {
       showAlert("Invalid Input", "Please fix the errors before continuing.", "⚠️");
+      return;
+    }
+
+    // Double check right before submitting
+    if (!isLogin && password !== confirmPassword) {
+      setConfirmPasswordError('Passwords do not match.');
+      showAlert("Hold up", "Passwords do not match.", "✋");
       return;
     }
 
@@ -152,6 +191,7 @@ export default function AuthScreen() {
         showAlert("Account Created!", "Your account is ready. Please log in with your new credentials.", "🎉");
         setIsLogin(true);
         setPassword('');
+        setConfirmPassword('');
       }
     } catch (error: any) {
       const errorMsg = error.response?.data?.message || "Something went wrong";
@@ -181,7 +221,7 @@ export default function AuthScreen() {
     try {
       await api.post('/auth/reset-password', {
         email: resetEmail,
-        otp: otpCode, // Fixed typo: changed 'Code' to 'otpCode'
+        otp: otpCode,
         newPassword: resetNewPassword
       });
       setForgotModalVisible(false);
@@ -262,6 +302,28 @@ export default function AuthScreen() {
           </View>
           {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
 
+          {/* Confirm Password Field (Only shown during Sign Up) */}
+          {!isLogin && (
+            <>
+              <View style={[styles.inputContainer, getBorderStyle('confirmPassword', confirmPasswordError)]}>
+                <TextInput
+                  style={styles.inputText}
+                  placeholder="Confirm Password"
+                  placeholderTextColor={Colors.textMuted}
+                  secureTextEntry={!showConfirmPassword}
+                  onFocus={() => setFocusedInput('confirmPassword')}
+                  onBlur={() => setFocusedInput(null)}
+                  value={confirmPassword}
+                  onChangeText={validateConfirmPassword}
+                />
+                <TouchableOpacity style={styles.iconButton} onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
+                  <Ionicons name={showConfirmPassword ? "eye-outline" : "eye-off-outline"} size={22} color={Colors.textMuted} />
+                </TouchableOpacity>
+              </View>
+              {confirmPasswordError ? <Text style={styles.errorText}>{confirmPasswordError}</Text> : null}
+            </>
+          )}
+
           {isLogin && (
             <TouchableOpacity onPress={() => setForgotModalVisible(true)} style={styles.forgotPasswordContainer}>
               <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
@@ -276,7 +338,6 @@ export default function AuthScreen() {
             <View style={styles.divider} /><Text style={styles.dividerText}>OR</Text><View style={styles.divider} />
           </View>
 
-          {/* Connected button click listener directly to native trigger */}
           <TouchableOpacity style={styles.googleButton} onPress={signInWithGoogle} disabled={loading}>
             <Text style={styles.googleButtonText}>🌐 Continue with Google</Text>
           </TouchableOpacity>
@@ -290,6 +351,7 @@ export default function AuthScreen() {
         </View>
       </ScrollView>
 
+      {/* Forgot Password Modal Remains the Same */}
       <Modal transparent visible={forgotModalVisible} animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -372,7 +434,6 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 16, color: Colors.textMuted, marginTop: 8 },
   form: { width: '100%' },
 
-  // Shared container and text styles for Name, Email, and Password fields
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',

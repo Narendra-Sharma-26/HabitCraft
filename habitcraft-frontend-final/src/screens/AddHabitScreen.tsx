@@ -1,15 +1,28 @@
 import React, { useState, useContext } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView, Keyboard } from 'react-native';
 import api from '../api/axiosConfig';
 import { Colors } from '../theme/Colors';
 import { AlertContext } from '../context/AlertContext'; 
 // ⭐ Only keeping scheduleTaskReminders for background notifications
 import { scheduleTaskReminders } from '../services/NotificationService'; 
 
+const HABIT_SUGGESTIONS = [
+  "Drink 2 Liters of Water", "Hit 10,000 Steps", "30 Minutes of Exercise", "Sleep for 8 Hours",
+  "Morning Stretching", "No Sugar Today", "Eat a Healthy Breakfast", "Wake Up at 6:00 AM",
+  "Read 10 Pages of a Book", "Plan the Day Ahead", "Practice Java for 30 Mins", "Deep Work for 2 Hours",
+  "Solve 1 Coding Problem", "Review Daily Goals", "Clear Email Inbox", "10 Minutes of Meditation",
+  "Write in a Gratitude Journal", "No Screens 1 Hour Before Bed", "Go for a Nature Walk",
+  "Daily Breathing Exercises", "Learn a New Language (15 Mins)", "Practice Handwriting for 15 Mins",
+  "Work on Side Project", "Listen to an Educational Podcast", "Read Industry Articles",
+  "Make the Bed", "Track Daily Expenses", "15-Minute Room Tidy", "Pack Bag for Tomorrow",
+  "Cook a Home Meal"
+];
+
 export default function AddHabitScreen({ navigation }: any) {
   const { showAlert } = useContext(AlertContext);
 
   const [title, setTitle] = useState('');
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [difficulty, setDifficulty] = useState('Medium');
   const [preferredTime, setPreferredTime] = useState('Morning');
   
@@ -20,6 +33,11 @@ export default function AddHabitScreen({ navigation }: any) {
   const difficulties = ["Easy", "Medium", "Hard"];
   const times = ["Morning", "Afternoon", "Evening", "Anytime"];
   const durationOptions: (number | 'Custom')[] = [15, 30, 45, 60, 'Custom'];
+
+  // Filter suggestions based on input, showing max 10
+  const filteredSuggestions = HABIT_SUGGESTIONS.filter(h => 
+    h.toLowerCase().includes(title.toLowerCase()) && h !== title
+  ).slice(0, 10);
 
   const handleCreateHabit = async () => {
     if (!title.trim()) return showAlert("Hold up!", "Please enter a name for your habit.", "✋");
@@ -45,7 +63,6 @@ export default function AddHabitScreen({ navigation }: any) {
          }
       }
 
-      // ⭐ Display the updated modal message guiding the user to the Edit screen
       showAlert("Success", "Habit created successfully! \n\nNote: Alarms can be set while editing the habit. Tap on the habit from your list to edit and set an alarm.", "✅");
       navigation.goBack(); 
     } catch (error: any) {
@@ -75,9 +92,7 @@ export default function AddHabitScreen({ navigation }: any) {
     <View style={{ flex: 1, backgroundColor: Colors.background }}>
         <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtnWrapper}>
-                <Text style={styles.backBtn}>✕ Cancel</Text>
-            </TouchableOpacity>
+            <View style={{ width: 80 }} /> {/* Spacer to keep title perfectly centered */}
             <Text style={styles.headerTitle}>New Habit</Text>
             <View style={{ width: 80 }} /> 
         </View>
@@ -89,8 +104,34 @@ export default function AddHabitScreen({ navigation }: any) {
                 placeholder="e.g., Read 10 pages, Gym..." 
                 placeholderTextColor={Colors.textMuted}
                 value={title}
-                onChangeText={setTitle}
+                onChangeText={(text) => {
+                  setTitle(text);
+                  setShowSuggestions(true);
+                }}
+                onFocus={() => setShowSuggestions(true)}
             />
+            
+            {/* Auto-Suggestion Dropdown */}
+            {showSuggestions && filteredSuggestions.length > 0 && (
+              <View style={styles.suggestionsContainer}>
+                {filteredSuggestions.map((suggestion, index) => (
+                  <TouchableOpacity 
+                    key={index} 
+                    style={[
+                      styles.suggestionItem, 
+                      index === filteredSuggestions.length - 1 && { borderBottomWidth: 0 }
+                    ]} 
+                    onPress={() => { 
+                      setTitle(suggestion); 
+                      setShowSuggestions(false);
+                      Keyboard.dismiss();
+                    }}
+                  >
+                    <Text style={styles.suggestionText}>{suggestion}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
         </View>
 
         <View style={styles.cardSection}>
@@ -123,6 +164,11 @@ export default function AddHabitScreen({ navigation }: any) {
         <TouchableOpacity style={styles.primaryButton} onPress={handleCreateHabit} disabled={loading}>
             {loading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.buttonText}>Create Habit</Text>}
         </TouchableOpacity>
+
+        {/* New Cancel Button identical in size to Create Habit */}
+        <TouchableOpacity style={styles.cancelButton} onPress={() => navigation.goBack()} disabled={loading}>
+            <Text style={styles.cancelButtonText}>Cancel</Text>
+        </TouchableOpacity>
         </ScrollView>
     </View>
   );
@@ -131,8 +177,6 @@ export default function AddHabitScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 20 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 30, marginBottom: 25 },
-  backBtnWrapper: { padding: 5 },
-  backBtn: { color: Colors.textMuted, fontSize: 16, fontWeight: 'bold' },
   headerTitle: { color: Colors.text, fontSize: 22, fontWeight: 'bold' },
   
   cardSection: { backgroundColor: Colors.card, padding: 20, borderRadius: 16, marginBottom: 15, borderWidth: 1, borderColor: Colors.border },
@@ -141,6 +185,26 @@ const styles = StyleSheet.create({
   
   input: { backgroundColor: Colors.background, color: Colors.text, padding: 15, borderRadius: 12, fontSize: 16, borderWidth: 1, borderColor: Colors.border },
   
+  // Suggestion Dropdown Styles
+  suggestionsContainer: { 
+    marginTop: 8, 
+    backgroundColor: Colors.background, 
+    borderRadius: 12, 
+    borderWidth: 1, 
+    borderColor: Colors.border, 
+    maxHeight: 200, 
+    overflow: 'hidden' 
+  },
+  suggestionItem: { 
+    padding: 15, 
+    borderBottomWidth: 1, 
+    borderBottomColor: Colors.border 
+  },
+  suggestionText: { 
+    color: Colors.text, 
+    fontSize: 15 
+  },
+
   chipContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   chip: { backgroundColor: Colors.background, paddingVertical: 12, paddingHorizontal: 16, borderRadius: 12, borderWidth: 1, borderColor: Colors.border },
   chipSelected: { backgroundColor: Colors.primary, borderColor: Colors.primary },
@@ -148,5 +212,9 @@ const styles = StyleSheet.create({
   chipTextSelected: { color: '#FFF' },
   
   primaryButton: { backgroundColor: Colors.primary, padding: 18, borderRadius: 14, alignItems: 'center', marginTop: 20, shadowColor: Colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 5 },
-  buttonText: { color: '#FFF', fontSize: 18, fontWeight: 'bold' }
+  buttonText: { color: '#FFF', fontSize: 18, fontWeight: 'bold' },
+
+  // Added exact dimensions for the new Cancel button using Error colors
+  cancelButton: { backgroundColor: Colors.card, padding: 18, borderRadius: 14, alignItems: 'center', marginTop: 15, borderWidth: 1, borderColor: Colors.error },
+  cancelButtonText: { color: Colors.error, fontSize: 18, fontWeight: 'bold' }
 });

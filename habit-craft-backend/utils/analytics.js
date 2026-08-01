@@ -1,20 +1,11 @@
 const Habit = require("../models/Habit");
 const HabitLog = require("../models/HabitLog");
-
-// Get last 7 days date strings
-const getLast7DaysRange = () => {
-    const today = new Date();
-    const todayStr = today.toISOString().split("T")[0];
-
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(today.getDate() - 6);
-    const sevenDaysAgoStr = sevenDaysAgo.toISOString().split("T")[0];
-
-    return { todayStr, sevenDaysAgoStr };
-};
+const { getTodayIST, getPastISTDate } = require("./dateHelper"); 
 
 const calculateWeeklyAnalytics = async (userId) => {
-    const { todayStr, sevenDaysAgoStr } = getLast7DaysRange();
+    // ⭐ Use exact IST date strings
+    const todayStr = getTodayIST();
+    const sevenDaysAgoStr = getPastISTDate(6); // 6 days ago + today = 7 days
 
     // 1️⃣ Get all active habits
     const habits = await Habit.find({
@@ -53,26 +44,30 @@ const calculateWeeklyAnalytics = async (userId) => {
             log => log.habitId.toString() === habit._id.toString()
         );
 
-        const completedDays = habitLogs.length;
-        const consistencyPercent = (completedDays / 7) * 100;
+        // ⭐ Protect against duplicate daily logs inflating the score
+        const uniqueDays = new Set(habitLogs.map(log => {
+            return typeof log.date === 'string' ? log.date.split("T")[0] : log.date.toISOString().split("T")[0];
+        })).size;
 
-        overallCompleted += completedDays;
+        const consistencyPercent = (uniqueDays / 7) * 100;
+
+        overallCompleted += uniqueDays;
 
         // Track best & weakest habit
-        if (completedDays > max) {
-            max = completedDays;
+        if (uniqueDays > max) {
+            max = uniqueDays;
             bestHabit = habit.title;
         }
 
-        if (completedDays < min) {
-            min = completedDays;
+        if (uniqueDays < min) {
+            min = uniqueDays;
             weakHabit = habit.title;
         }
 
         habitStats.push({
             habitId: habit._id,
             title: habit.title,
-            completedDays,
+            completedDays: uniqueDays,
             consistencyPercent: Number(consistencyPercent.toFixed(0)),
             streak: habit.streak,
         });
@@ -81,32 +76,29 @@ const calculateWeeklyAnalytics = async (userId) => {
     // 📅 Daily completion trend for last 7 days
     const dailyTrendMap = {};
 
-    // Initialize last 7 days with 0
-    const startDate = new Date(sevenDaysAgoStr);
+    // ⭐ Fix: Initialize last 7 days using exact IST strings to avoid UTC Date math
     for (let i = 0; i < 7; i++) {
-        const d = new Date(startDate);
-        d.setDate(startDate.getDate() + i);
-        const key = d.toISOString().split("T")[0];
+        // 6-0=6 days ago, 6-1=5 days ago... 6-6=0 days ago (today)
+        const key = getPastISTDate(6 - i); 
         dailyTrendMap[key] = 0;
     }
 
     // Count logs per day
     logs.forEach(log => {
-        const logDate =
-            typeof log.date === "string"
-                ? log.date
-                : new Date(log.date).toISOString().split("T")[0];
+        // Safely extract just the YYYY-MM-DD
+        const logDate = typeof log.date === "string"
+            ? log.date.split("T")[0]
+            : log.date.toISOString().split("T")[0];
 
         if (dailyTrendMap[logDate] !== undefined) {
             dailyTrendMap[logDate] += 1;
         }
     });
 
-    const dailyTrend = Object.keys(dailyTrendMap).map(date => ({
+    const dailyTrend = Object.keys(dailyTrendMap).sort().map(date => ({
         date,
         completed: dailyTrendMap[date],
     }));
-
 
     const overallConsistency =
         overallTotal === 0 ? 0 : (overallCompleted / overallTotal) * 100;

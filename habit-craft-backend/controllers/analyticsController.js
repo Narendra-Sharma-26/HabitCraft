@@ -1,14 +1,7 @@
 const User = require("../models/User");
 const Habit = require("../models/Habit");
 const HabitLog = require("../models/HabitLog");
-
-// ⭐ THE MIDNIGHT TIMEZONE FIX ⭐
-// Standard .toISOString() uses UTC time. 
-// This helper forces the date string into your local timezone.
-const getLocalDateString = (d) => {
-    const offset = d.getTimezoneOffset() * 60000; 
-    return new Date(d.getTime() - offset).toISOString().split("T")[0];
-};
+const { getTodayIST, getPastISTDate } = require("../utils/dateHelper");
 
 // @desc    Get streak heatmap (last 30 days)
 // @route   GET /api/analytics/heatmap
@@ -17,13 +10,9 @@ const getHeatmap = async (req, res) => {
   try {
     const userId = req.user._id;
 
-    const today = new Date();
-    const startDate = new Date(today);
-    startDate.setDate(today.getDate() - 29); // last 30 days
-
-    // ⭐ Fix: Use local date strings for the query boundary
-    const startStr = getLocalDateString(startDate);
-    const todayStr = getLocalDateString(today);
+    // Use exact IST date strings for the query boundary
+    const todayStr = getTodayIST();
+    const startStr = getPastISTDate(29); // 29 days ago + today = 30 days
 
     const logs = await HabitLog.find({
       userId,
@@ -34,17 +23,15 @@ const getHeatmap = async (req, res) => {
     // Initialize map with 0
     const heatmapMap = {};
     for (let i = 0; i < 30; i++) {
-      const d = new Date(startDate);
-      d.setDate(startDate.getDate() + i);
-      // ⭐ Fix: Ensure the key is in local time
-      const key = getLocalDateString(d); 
+      // Safely grab the exact IST string for each of the past 30 days
+      const key = getPastISTDate(29 - i); 
       heatmapMap[key] = 0;
     }
 
     // Count completions per day
     logs.forEach(log => {
-      // Safely parse the date, ensuring it matches our local string format
-      const date = typeof log.date === "string" ? log.date.split("T")[0] : getLocalDateString(new Date(log.date));
+      // Ensure we extract just the "YYYY-MM-DD" portion 
+      const date = typeof log.date === "string" ? log.date.split("T")[0] : log.date.toISOString().split("T")[0];
       if (heatmapMap[date] !== undefined) {
         heatmapMap[date] += 1;
       }
@@ -72,13 +59,9 @@ const getLeaderboard = async (req, res) => {
     const allUsers = await User.find({}).select("name disciplineScore");
     const allHabits = await Habit.find({ isActive: true }).select("userId streak totalCompleted _id");
 
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-    
-    // ⭐ Fix: Use local timezone for the "Alive" streak check
-    const todayStr = getLocalDateString(today);
-    const yesterdayStr = getLocalDateString(yesterday);
+    // Use exact IST date strings for the streak check
+    const todayStr = getTodayIST();
+    const yesterdayStr = getPastISTDate(1);
 
     const recentLogs = await HabitLog.find({
       date: { $in: [todayStr, yesterdayStr] },
