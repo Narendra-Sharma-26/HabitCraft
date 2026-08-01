@@ -2,7 +2,7 @@ const Habit = require("../models/Habit");
 const HabitLog = require("../models/HabitLog");
 const Schedule = require("../models/Schedule");
 const { findAvailableTime } = require("../utils/scheduler");
-const { getTodayIST, getPastISTDate } = require("./dateHelper"); // ⭐ Added IST helpers
+const { getTodayIST, getPastISTDate } = require("../utils/dateHelper"); // ⭐ Added IST helpers
 
 // @desc    Add new habit
 // @route   POST /api/habits
