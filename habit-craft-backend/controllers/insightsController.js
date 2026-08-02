@@ -1,6 +1,6 @@
 const Habit = require("../models/Habit");
 const HabitLog = require("../models/HabitLog");
-const { getTodayIST, getPastISTDate } = require("./dateHelper"); // ⭐ Added IST helpers
+const { getTodayIST, getPastISTDate } = require("../utils/dateHelper"); // ⭐ Added IST helpers
 
 // @desc    Get AI Coach Insights
 // @route   GET /api/dashboard/insights

@@ -1,6 +1,6 @@
 const Habit = require("../models/Habit");
 const HabitLog = require("../models/HabitLog");
-const { getPastISTDate } = require("./dateHelper"); // ⭐ Added IST helper
+const { getPastISTDate } = require("../utils/dateHelper"); // ⭐ Added IST helper
 
 // @desc    Get health score of all habits
 // @route   GET /api/habits/health
