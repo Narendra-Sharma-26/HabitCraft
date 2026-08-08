@@ -3,7 +3,6 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator,
 import api from '../api/axiosConfig';
 import { Colors } from '../theme/Colors';
 import { AlertContext } from '../context/AlertContext'; 
-// ⭐ Only keeping scheduleTaskReminders for background notifications
 import { scheduleTaskReminders } from '../services/NotificationService'; 
 
 const HABIT_SUGGESTIONS = [
@@ -31,13 +30,14 @@ export default function AddHabitScreen({ navigation }: any) {
   const [loading, setLoading] = useState(false);
 
   const difficulties = ["Easy", "Medium", "Hard"];
-  const times = ["Morning", "Afternoon", "Evening", "Anytime"];
-  const durationOptions: (number | 'Custom')[] = [15, 30, 45, 60, 'Custom'];
+  const times = ["Morning", "Afternoon", "Evening"];
+  const durationOptions: (number | 'Custom')[] = [30, 60, 'Custom'];
 
-  // Filter suggestions based on input, showing max 10
   const filteredSuggestions = HABIT_SUGGESTIONS.filter(h => 
-    h.toLowerCase().includes(title.toLowerCase()) && h !== title
-  ).slice(0, 10);
+    h.toLowerCase().includes(title.toLowerCase())
+  );
+
+  const isDropdownVisible = showSuggestions && filteredSuggestions.length > 0;
 
   const handleCreateHabit = async () => {
     if (!title.trim()) return showAlert("Hold up!", "Please enter a name for your habit.", "✋");
@@ -77,10 +77,10 @@ export default function AddHabitScreen({ navigation }: any) {
       {options.map((option) => (
         <TouchableOpacity
           key={option}
-          style={[styles.chip, selectedValue === option && styles.chipSelected]}
+          style={[styles.chip, selectedValue === option ? styles.chipSelected : null]}
           onPress={() => onSelect(option)}
         >
-          <Text style={[styles.chipText, selectedValue === option && styles.chipTextSelected]}>
+          <Text style={[styles.chipText, selectedValue === option ? styles.chipTextSelected : null]}>
             {option === 'Custom' ? 'Custom' : (typeof option === 'number' ? `${option} min` : option)}
           </Text>
         </TouchableOpacity>
@@ -90,55 +90,86 @@ export default function AddHabitScreen({ navigation }: any) {
 
   return (
     <View style={{ flex: 1, backgroundColor: Colors.background }}>
-        <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+        <ScrollView 
+          style={styles.container} 
+          contentContainerStyle={{ paddingBottom: 40 }} 
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled" 
+        >
         <View style={styles.header}>
-            <View style={{ width: 80 }} /> {/* Spacer to keep title perfectly centered */}
+            <View style={{ width: 80 }} />
             <Text style={styles.headerTitle}>New Habit</Text>
             <View style={{ width: 80 }} /> 
         </View>
 
         <View style={styles.cardSection}>
             <Text style={styles.label}>What do you want to build?</Text>
-            <TextInput 
-                style={styles.input} 
-                placeholder="e.g., Read 10 pages, Gym..." 
-                placeholderTextColor={Colors.textMuted}
-                value={title}
-                onChangeText={(text) => {
-                  setTitle(text);
-                  setShowSuggestions(true);
-                }}
-                onFocus={() => setShowSuggestions(true)}
-            />
-            
-            {/* Auto-Suggestion Dropdown */}
-            {showSuggestions && filteredSuggestions.length > 0 && (
-              <View style={styles.suggestionsContainer}>
-                {filteredSuggestions.map((suggestion, index) => (
-                  <TouchableOpacity 
-                    key={index} 
+            <View style={{ zIndex: 10, position: 'relative' }}>
+                <TextInput 
                     style={[
-                      styles.suggestionItem, 
-                      index === filteredSuggestions.length - 1 && { borderBottomWidth: 0 }
+                      styles.input, 
+                      { paddingRight: 45 }, // Prevents text from overlapping the clear button
+                      isDropdownVisible ? styles.inputWithDropdownOpen : null
                     ]} 
-                    onPress={() => { 
-                      setTitle(suggestion); 
-                      setShowSuggestions(false);
-                      Keyboard.dismiss();
+                    placeholder="e.g., Read 10 pages, Gym..." 
+                    placeholderTextColor={Colors.textMuted}
+                    value={title}
+                    onChangeText={(text) => {
+                      setTitle(text);
+                      setShowSuggestions(true);
+                    }}
+                    onFocus={() => setShowSuggestions(true)}
+                    onPressIn={() => setShowSuggestions(true)} 
+                    onBlur={() => {
+                      setTimeout(() => setShowSuggestions(false), 200);
+                    }}
+                />
+                
+                {/* ⭐ NEW: Clear Button conditionally rendered when there is text */}
+                {title.length > 0 && (
+                  <TouchableOpacity 
+                    style={styles.clearButton} 
+                    onPress={() => {
+                      setTitle('');
+                      setShowSuggestions(false); // Optionally hide dropdown when cleared
                     }}
                   >
-                    <Text style={styles.suggestionText}>{suggestion}</Text>
+                    <Text style={styles.clearButtonText}>✕</Text>
                   </TouchableOpacity>
-                ))}
-              </View>
-            )}
+                )}
+                
+                {isDropdownVisible ? (
+                  <ScrollView 
+                    style={styles.suggestionsContainer} 
+                    nestedScrollEnabled={true}
+                    keyboardShouldPersistTaps="handled"
+                  >
+                    {filteredSuggestions.map((suggestion, index) => (
+                      <TouchableOpacity 
+                        key={index} 
+                        style={[
+                          styles.suggestionItem, 
+                          index === filteredSuggestions.length - 1 ? { borderBottomWidth: 0 } : null
+                        ]} 
+                        onPress={() => { 
+                          setTitle(suggestion); 
+                          setShowSuggestions(false);
+                          Keyboard.dismiss();
+                        }}
+                      >
+                        <Text style={styles.suggestionText}>{suggestion}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                ) : null}
+            </View>
         </View>
 
         <View style={styles.cardSection}>
             <Text style={styles.label}>Duration</Text>
             {renderChips(durationOptions, selectedDurationChip, setSelectedDurationChip)}
             
-            {selectedDurationChip === 'Custom' && (
+            {selectedDurationChip === 'Custom' ? (
                 <TextInput 
                 style={[styles.input, { marginTop: 15 }]} 
                 placeholder="Enter total minutes (e.g., 120)" 
@@ -147,7 +178,7 @@ export default function AddHabitScreen({ navigation }: any) {
                 value={customDuration}
                 onChangeText={setCustomDuration}
                 />
-            )}
+            ) : null}
         </View>
 
         <View style={styles.cardSection}>
@@ -165,7 +196,6 @@ export default function AddHabitScreen({ navigation }: any) {
             {loading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.buttonText}>Create Habit</Text>}
         </TouchableOpacity>
 
-        {/* New Cancel Button identical in size to Create Habit */}
         <TouchableOpacity style={styles.cancelButton} onPress={() => navigation.goBack()} disabled={loading}>
             <Text style={styles.cancelButtonText}>Cancel</Text>
         </TouchableOpacity>
@@ -179,21 +209,40 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 30, marginBottom: 25 },
   headerTitle: { color: Colors.text, fontSize: 22, fontWeight: 'bold' },
   
-  cardSection: { backgroundColor: Colors.card, padding: 20, borderRadius: 16, marginBottom: 15, borderWidth: 1, borderColor: Colors.border },
+  cardSection: { backgroundColor: Colors.card, padding: 20, borderRadius: 16, marginBottom: 15, borderWidth: 1, borderColor: Colors.border, zIndex: 1 },
   label: { color: Colors.text, fontSize: 16, fontWeight: 'bold', marginBottom: 12 },
   helperText: { color: Colors.textMuted, fontSize: 13, marginBottom: 15, marginTop: -8 },
   
   input: { backgroundColor: Colors.background, color: Colors.text, padding: 15, borderRadius: 12, fontSize: 16, borderWidth: 1, borderColor: Colors.border },
   
-  // Suggestion Dropdown Styles
+  inputWithDropdownOpen: {
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    borderBottomWidth: 0,
+  },
+  
+  // ⭐ NEW: Clear button styles
+  clearButton: {
+    position: 'absolute',
+    right: 15,
+    top: 15, // Aligns perfectly with the 15px padding of the TextInput
+    zIndex: 20,
+    padding: 2, // Gives a slightly larger touch target area
+  },
+  clearButtonText: {
+    color: Colors.textMuted,
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+
   suggestionsContainer: { 
-    marginTop: 8, 
     backgroundColor: Colors.background, 
-    borderRadius: 12, 
+    borderBottomLeftRadius: 12, 
+    borderBottomRightRadius: 12,
     borderWidth: 1, 
+    borderTopWidth: 0,
     borderColor: Colors.border, 
-    maxHeight: 200, 
-    overflow: 'hidden' 
+    maxHeight: 180, 
   },
   suggestionItem: { 
     padding: 15, 
@@ -214,7 +263,6 @@ const styles = StyleSheet.create({
   primaryButton: { backgroundColor: Colors.primary, padding: 18, borderRadius: 14, alignItems: 'center', marginTop: 20, shadowColor: Colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 5 },
   buttonText: { color: '#FFF', fontSize: 18, fontWeight: 'bold' },
 
-  // Added exact dimensions for the new Cancel button using Error colors
   cancelButton: { backgroundColor: Colors.card, padding: 18, borderRadius: 14, alignItems: 'center', marginTop: 15, borderWidth: 1, borderColor: Colors.error },
   cancelButtonText: { color: Colors.error, fontSize: 18, fontWeight: 'bold' }
 });

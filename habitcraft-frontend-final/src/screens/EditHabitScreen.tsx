@@ -5,7 +5,7 @@ import api from '../api/axiosConfig';
 import { Colors } from '../theme/Colors';
 import { AlertContext } from '../context/AlertContext';
 // ⭐ Added cancelHabitReminders to the import
-import { scheduleTaskReminders, setNativeRepeatingAlarm, cancelHabitReminders } from '../services/NotificationService'; 
+import { scheduleTaskReminders, setNativeRepeatingAlarm, cancelHabitReminders } from '../services/NotificationService';
 
 const dateToHHMM = (date: Date) => {
   const h = date.getHours().toString().padStart(2, '0');
@@ -34,10 +34,10 @@ export default function EditHabitScreen({ route, navigation }: any) {
   const [title, setTitle] = useState(habit.title);
   const [duration, setDuration] = useState(habit.duration ? habit.duration.toString() : '30');
   const [difficulty, setDifficulty] = useState(habit.difficulty || 'Medium');
-  
+
   const [scheduledTime, setScheduledTime] = useState(habit.scheduledTime || '');
   const [showPicker, setShowPicker] = useState(false);
-  
+
   const [alarmEnabled, setAlarmEnabled] = useState(true);
 
   const [loading, setLoading] = useState(false);
@@ -57,8 +57,8 @@ export default function EditHabitScreen({ route, navigation }: any) {
 
       if (now.getTime() - lastUpdate.getTime() < thirtyDaysInMs) {
         return showAlert(
-          "Limit Reached", 
-          "Difficulty can only be updated once per month.", 
+          "Limit Reached",
+          "Difficulty can only be updated once per month.",
           "⏳"
         );
       }
@@ -74,80 +74,80 @@ export default function EditHabitScreen({ route, navigation }: any) {
     try {
       if (scheduledTime) {
         const newStart = timeToMins(scheduledTime);
-        
+
         if (newStart !== null) {
-            const [dashResponse, schedResponse] = await Promise.all([
-                api.get('/dashboard').catch(() => ({ data: { habits: [] } })),
-                api.get('/schedule').catch(() => ({ data: null }))
-            ]);
-            
-            const existingHabits = dashResponse.data?.habits || [];
-            const schedule = schedResponse.data;
+          const [dashResponse, schedResponse] = await Promise.all([
+            api.get('/dashboard').catch(() => ({ data: { habits: [] } })),
+            api.get('/schedule').catch(() => ({ data: null }))
+          ]);
 
-            const newEnd = newStart + parseInt(duration);
-            const BUFFER = 10; 
-            
-            const blockedMins: any[] = [];
+          const existingHabits = dashResponse.data?.habits || [];
+          const schedule = schedResponse.data;
 
-            if (schedule) {
-                if (schedule.wakeUpTime) {
-                    const wakeMins = timeToMins(schedule.wakeUpTime);
-                    if (wakeMins !== null) {
-                        blockedMins.push({ start: 0, end: wakeMins + BUFFER, title: `Wake Up Time (${schedule.wakeUpTime})`, type: 'boundary' });
-                    }
-                }
-                
-                if (schedule.sleepTime) {
-                    let sleepMins = timeToMins(schedule.sleepTime);
-                    if (sleepMins !== null) {
-                        if (sleepMins === 0) {
-                            sleepMins = 1440; 
-                        }
-                        blockedMins.push({ start: sleepMins - BUFFER, end: 1440, title: `Sleep Time (${schedule.sleepTime})`, type: 'boundary' });
-                    }
-                }
-                
-                if (schedule.busySlots && schedule.busySlots.length > 0) {
-                    schedule.busySlots.forEach((slot: any) => {
-                        const startMins = timeToMins(slot.start);
-                        const endMins = timeToMins(slot.end);
-                        if (startMins !== null && endMins !== null) {
-                            blockedMins.push({
-                                start: startMins - BUFFER,
-                                end: endMins + BUFFER,
-                                title: `Busy Block`,
-                                type: 'busy slot'
-                            });
-                        }
-                    });
-                }
-            }
+          const newEnd = newStart + parseInt(duration);
+          const BUFFER = 10;
 
-            existingHabits.forEach((h: any) => {
-              if (h._id === habit._id || !h.scheduledTime) return; 
-              const hStart = timeToMins(h.scheduledTime);
-              if (hStart !== null) {
-                  blockedMins.push({ 
-                      start: hStart - BUFFER, 
-                      end: hStart + (h.duration || 30) + BUFFER, 
-                      title: h.title, 
-                      type: 'habit' 
-                  });
+          const blockedMins: any[] = [];
+
+          if (schedule) {
+            if (schedule.wakeUpTime) {
+              const wakeMins = timeToMins(schedule.wakeUpTime);
+              if (wakeMins !== null) {
+                blockedMins.push({ start: 0, end: wakeMins + BUFFER, title: `Wake Up Time (${schedule.wakeUpTime})`, type: 'boundary' });
               }
-            });
-
-            const conflictingSlot = blockedMins.find((slot) => {
-              return (newStart < slot.end) && (newEnd > slot.start);
-            });
-
-            if (conflictingSlot) {
-              setLoading(false);
-              return showAlert(
-                "Slot Unavailable", 
-                `This conflicts with your ${conflictingSlot.type} "${conflictingSlot.title}".\n\nRemember, you must have at least a 10-minute buffer between tasks, wake times, and sleep times!`, 
-                "⚠️"
-              );
             }
+
+            if (schedule.sleepTime) {
+              let sleepMins = timeToMins(schedule.sleepTime);
+              if (sleepMins !== null) {
+                if (sleepMins === 0) {
+                  sleepMins = 1440;
+                }
+                blockedMins.push({ start: sleepMins - BUFFER, end: 1440, title: `Sleep Time (${schedule.sleepTime})`, type: 'boundary' });
+              }
+            }
+
+            if (schedule.busySlots && schedule.busySlots.length > 0) {
+              schedule.busySlots.forEach((slot: any) => {
+                const startMins = timeToMins(slot.start);
+                const endMins = timeToMins(slot.end);
+                if (startMins !== null && endMins !== null) {
+                  blockedMins.push({
+                    start: startMins - BUFFER,
+                    end: endMins + BUFFER,
+                    title: `Busy Block`,
+                    type: 'busy slot'
+                  });
+                }
+              });
+            }
+          }
+
+          existingHabits.forEach((h: any) => {
+            if (h._id === habit._id || !h.scheduledTime) return;
+            const hStart = timeToMins(h.scheduledTime);
+            if (hStart !== null) {
+              blockedMins.push({
+                start: hStart - BUFFER,
+                end: hStart + (h.duration || 30) + BUFFER,
+                title: h.title,
+                type: 'habit'
+              });
+            }
+          });
+
+          const conflictingSlot = blockedMins.find((slot) => {
+            return (newStart < slot.end) && (newEnd > slot.start);
+          });
+
+          if (conflictingSlot) {
+            setLoading(false);
+            return showAlert(
+              "Slot Unavailable",
+              `This conflicts with your ${conflictingSlot.type} "${conflictingSlot.title}".\n\nRemember, you must have at least a 10-minute buffer between tasks, wake times, and sleep times!`,
+              "⚠️"
+            );
+          }
         }
       }
 
@@ -155,22 +155,24 @@ export default function EditHabitScreen({ route, navigation }: any) {
         title,
         difficulty,
         duration: parseInt(duration),
-        scheduledTime 
+        scheduledTime
       });
 
       let alarmMessage = "";
 
       if (scheduledTime) {
+        // ⭐ FIX FOR ISSUE 3: Cancel old reminders before setting new ones
+        await cancelHabitReminders(habit._id);
         await scheduleTaskReminders(habit._id, title, scheduledTime);
-        
+
         if (alarmEnabled) {
-            await setNativeRepeatingAlarm(scheduledTime, title);
-            alarmMessage = "\n\n⏰ Physical Alarm activated! (Note: If you need to turn off or remove this alarm later, please manage it directly in your phone's Clock app).";
+          await setNativeRepeatingAlarm(scheduledTime, title);
+          alarmMessage = "\n\n⏰ Physical Alarm activated! (Note: If you need to turn off or remove this alarm later, please manage it directly in your phone's Clock app).";
         }
       }
 
       showAlert("Success", `Habit updated successfully.${alarmMessage}`, "✅");
-      navigation.goBack(); 
+      navigation.goBack();
     } catch (error: any) {
       showAlert("Error", error.response?.data?.message || "Failed to update habit.", "⚠️");
     } finally {
@@ -180,32 +182,32 @@ export default function EditHabitScreen({ route, navigation }: any) {
 
   const handleDeleteHabit = () => {
     showAlert(
-      "Delete Habit", 
-      "Are you sure you want to permanently delete this habit?", 
-      "🗑️", 
+      "Delete Habit",
+      "Are you sure you want to permanently delete this habit?",
+      "🗑️",
       async () => {
         setDeleting(true);
         try {
           await api.delete(`/habits/${habit._id}`);
-          
+
           // ⭐ Clear phantom notifications immediately after successful deletion
           await cancelHabitReminders(habit._id);
-          
+
           navigation.goBack();
         } catch (error) {
           showAlert("Error", "Failed to delete habit.", "⚠️");
           setDeleting(false);
         }
-      }, 
-      true 
+      },
+      true
     );
   };
 
   const handleTimeChange = (event: any, selectedDate?: Date) => {
     if (Platform.OS === 'android') setShowPicker(false);
     if (event.type === 'dismissed' || !selectedDate) {
-        setShowPicker(false);
-        return;
+      setShowPicker(false);
+      return;
     }
     setScheduledTime(dateToHHMM(selectedDate));
     if (Platform.OS === 'ios') setShowPicker(false);
@@ -262,15 +264,15 @@ export default function EditHabitScreen({ route, navigation }: any) {
       <TextInput style={styles.input} value={duration} onChangeText={setDuration} keyboardType="numeric" />
 
       <View style={styles.toggleRow}>
-          <View style={{ flex: 1, paddingRight: 10 }}>
-              <Text style={styles.label}>Physical Alarm 🔔</Text>
-              <Text style={styles.helperText}>Rings loudly in your native clock app</Text>
-          </View>
-          <Switch 
-              value={alarmEnabled} 
-              onValueChange={setAlarmEnabled}
-              trackColor={{ false: Colors.border, true: Colors.primary }}
-          />
+        <View style={{ flex: 1, paddingRight: 10 }}>
+          <Text style={styles.label}>Physical Alarm 🔔</Text>
+          <Text style={styles.helperText}>Rings loudly in your native clock app</Text>
+        </View>
+        <Switch
+          value={alarmEnabled}
+          onValueChange={setAlarmEnabled}
+          trackColor={{ false: Colors.border, true: Colors.primary }}
+        />
       </View>
 
       <TouchableOpacity style={styles.primaryButton} onPress={handleUpdateHabit} disabled={loading || deleting}>
@@ -292,7 +294,7 @@ const styles = StyleSheet.create({
   label: { color: Colors.text, fontSize: 16, fontWeight: 'bold', marginBottom: 8, marginTop: 20 },
   helperText: { color: Colors.textMuted, fontSize: 13, marginBottom: 10 },
   input: { backgroundColor: Colors.card, color: Colors.text, padding: 15, borderRadius: 10, fontSize: 16, borderWidth: 1, borderColor: Colors.border },
-  
+
   chipContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   chip: { backgroundColor: Colors.card, paddingVertical: 12, paddingHorizontal: 18, borderRadius: 12, borderWidth: 1, borderColor: Colors.border },
   chipSelected: { backgroundColor: Colors.primary, borderColor: Colors.primary },
@@ -301,7 +303,7 @@ const styles = StyleSheet.create({
 
   timePickerButton: { backgroundColor: Colors.card, padding: 15, borderRadius: 10, alignItems: 'center', borderWidth: 1, borderColor: Colors.border },
   timeText: { color: Colors.text, fontSize: 18, fontWeight: 'bold' },
-  
+
   toggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: Colors.card, padding: 15, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, marginTop: 20 },
 
   primaryButton: { backgroundColor: Colors.success, padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 40 },
