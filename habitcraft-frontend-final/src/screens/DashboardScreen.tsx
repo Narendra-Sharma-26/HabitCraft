@@ -28,7 +28,7 @@ const HabitListItem = ({ item, navigation, onToggle }: any) => {
   return (
     <TouchableOpacity style={styles.habitCard} onPress={() => navigation.navigate('EditHabit', { habit: item })} activeOpacity={0.7}>
       <View style={styles.habitInfo}>
-        <Text style={styles.habitTitle}>{item.title}</Text>
+        <Text style={styles.habitTitle}>{item.icon || '🎯'} {item.title}</Text>
         <View style={styles.tagsContainer}>
             <Text style={[styles.tag, { color: getDifficultyColor(item.difficulty), borderColor: getDifficultyColor(item.difficulty) }]}>{item.difficulty}</Text>
             <Text style={[styles.tag, { color: colors.textMuted, borderColor: colors.border }]}>⏱️ {item.duration}m</Text>

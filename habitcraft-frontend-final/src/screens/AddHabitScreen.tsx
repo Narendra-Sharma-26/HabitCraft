@@ -23,6 +23,9 @@ export default function AddHabitScreen({ navigation }: any) {
   const styles = getStyles(colors);
 
   const [title, setTitle] = useState('');
+  // ⭐ NEW: Add icon state
+  const [icon, setIcon] = useState('🎯');
+
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [difficulty, setDifficulty] = useState('Medium');
   const [preferredTime, setPreferredTime] = useState('Morning');
@@ -52,7 +55,7 @@ export default function AddHabitScreen({ navigation }: any) {
     setLoading(true);
     try {
       const response = await api.post('/habits', {
-        title, difficulty, preferredTime, duration: finalDuration 
+        title, icon, difficulty, preferredTime, duration: finalDuration // ⭐ Include icon in the create payload
       });
       
       const createdHabit = response.data.habit || response.data;
@@ -106,63 +109,75 @@ export default function AddHabitScreen({ navigation }: any) {
 
         <View style={styles.cardSection}>
             <Text style={styles.label}>What do you want to build?</Text>
-            <View style={{ zIndex: 10, position: 'relative' }}>
+            {/* ⭐ NEW: Icon & Title Row */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', zIndex: 10, position: 'relative' }}>
                 <TextInput 
-                    style={[
-                      styles.input, 
-                      { paddingRight: 45 }, 
-                      isDropdownVisible ? styles.inputWithDropdownOpen : null
-                    ]} 
-                    placeholder="e.g., Read 10 pages, Gym..." 
+                    style={styles.iconInput}
+                    value={icon}
+                    onChangeText={setIcon}
+                    maxLength={2}
+                    placeholder="🎯"
                     placeholderTextColor={colors.textMuted}
-                    value={title}
-                    onChangeText={(text) => {
-                      setTitle(text);
-                      setShowSuggestions(true);
-                    }}
-                    onFocus={() => setShowSuggestions(true)}
-                    onPressIn={() => setShowSuggestions(true)} 
-                    onBlur={() => {
-                      setTimeout(() => setShowSuggestions(false), 200);
-                    }}
                 />
                 
-                {title.length > 0 && (
-                  <TouchableOpacity 
-                    style={styles.clearButton} 
-                    onPress={() => {
-                      setTitle('');
-                      setShowSuggestions(false); 
-                    }}
-                  >
-                    <Text style={styles.clearButtonText}>✕</Text>
-                  </TouchableOpacity>
-                )}
-                
-                {isDropdownVisible ? (
-                  <ScrollView 
-                    style={styles.suggestionsContainer} 
-                    nestedScrollEnabled={true}
-                    keyboardShouldPersistTaps="handled"
-                  >
-                    {filteredSuggestions.map((suggestion, index) => (
-                      <TouchableOpacity 
-                        key={index} 
+                <View style={{ flex: 1 }}>
+                    <TextInput 
                         style={[
-                          styles.suggestionItem, 
-                          index === filteredSuggestions.length - 1 ? { borderBottomWidth: 0 } : null
+                          styles.input, 
+                          { paddingRight: 45 }, 
+                          isDropdownVisible ? styles.inputWithDropdownOpen : null
                         ]} 
-                        onPress={() => { 
-                          setTitle(suggestion); 
-                          setShowSuggestions(false);
-                          Keyboard.dismiss();
+                        placeholder="e.g., Read 10 pages, Gym..." 
+                        placeholderTextColor={colors.textMuted}
+                        value={title}
+                        onChangeText={(text) => {
+                          setTitle(text);
+                          setShowSuggestions(true);
+                        }}
+                        onFocus={() => setShowSuggestions(true)}
+                        onPressIn={() => setShowSuggestions(true)} 
+                        onBlur={() => {
+                          setTimeout(() => setShowSuggestions(false), 200);
+                        }}
+                    />
+                    
+                    {title.length > 0 && (
+                      <TouchableOpacity 
+                        style={styles.clearButton} 
+                        onPress={() => {
+                          setTitle('');
+                          setShowSuggestions(false); 
                         }}
                       >
-                        <Text style={styles.suggestionText}>{suggestion}</Text>
+                        <Text style={styles.clearButtonText}>✕</Text>
                       </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                ) : null}
+                    )}
+                    
+                    {isDropdownVisible ? (
+                      <ScrollView 
+                        style={styles.suggestionsContainer} 
+                        nestedScrollEnabled={true}
+                        keyboardShouldPersistTaps="handled"
+                      >
+                        {filteredSuggestions.map((suggestion, index) => (
+                          <TouchableOpacity 
+                            key={index} 
+                            style={[
+                              styles.suggestionItem, 
+                              index === filteredSuggestions.length - 1 ? { borderBottomWidth: 0 } : null
+                            ]} 
+                            onPress={() => { 
+                              setTitle(suggestion); 
+                              setShowSuggestions(false);
+                              Keyboard.dismiss();
+                            }}
+                          >
+                            <Text style={styles.suggestionText}>{suggestion}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    ) : null}
+                </View>
             </View>
         </View>
 
@@ -216,6 +231,9 @@ const getStyles = (colors: any) => StyleSheet.create({
   
   input: { backgroundColor: colors.background, color: colors.text, padding: 15, borderRadius: 12, fontSize: 16, borderWidth: 1, borderColor: colors.border },
   
+  // ⭐ NEW: Style for the manual emoji input
+  iconInput: { backgroundColor: colors.background, color: colors.text, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: colors.border, marginRight: 10, height: 56, width: 56, textAlign: 'center', fontSize: 24 },
+
   inputWithDropdownOpen: {
     borderBottomLeftRadius: 0,
     borderBottomRightRadius: 0,

@@ -11,6 +11,8 @@ const habitSchema = new mongoose.Schema(
   {
     userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
     title: { type: String, required: true, trim: true },
+
+    icon: { type: String, default: '🎯' },
     //category: { type: String, default: "General" },
     difficulty: { type: String, enum: ["Easy", "Medium", "Hard"], default: "Medium" },
     

@@ -33,6 +33,9 @@ export default function EditHabitScreen({ route, navigation }: any) {
   const styles = getStyles(colors);
 
   const [title, setTitle] = useState(habit.title);
+  // ⭐ NEW: Add icon state, defaulting to existing or a target emoji
+  const [icon, setIcon] = useState(habit.icon || '🎯');
+  
   const [duration, setDuration] = useState(habit.duration ? habit.duration.toString() : '30');
   const [difficulty, setDifficulty] = useState(habit.difficulty || 'Medium');
 
@@ -152,6 +155,7 @@ export default function EditHabitScreen({ route, navigation }: any) {
 
       await api.put(`/habits/${habit._id}`, {
         title,
+        icon, // ⭐ Include icon in the update payload
         difficulty,
         duration: parseInt(duration),
         scheduledTime
@@ -233,7 +237,20 @@ export default function EditHabitScreen({ route, navigation }: any) {
       </View>
 
       <Text style={styles.label}>Habit Title</Text>
-      <TextInput style={styles.input} value={title} onChangeText={setTitle} />
+      {/* ⭐ NEW: Icon & Title Row */}
+      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        <TextInput 
+          style={styles.iconInput}
+          value={icon}
+          onChangeText={setIcon}
+          maxLength={2}
+          placeholder="🎯"
+          placeholderTextColor={colors.textMuted}
+        />
+        <View style={{ flex: 1 }}>
+          <TextInput style={styles.input} value={title} onChangeText={setTitle} />
+        </View>
+      </View>
 
       <Text style={styles.label}>Difficulty</Text>
       {renderChips(difficulties, difficulty, handleDifficultySelect)}
@@ -290,6 +307,9 @@ const getStyles = (colors: any) => StyleSheet.create({
   labelPhysical: { color: colors.text, fontSize: 16, fontWeight: 'bold', marginBottom: 8 },
   helperText: { color: colors.textMuted, fontSize: 13, marginBottom: 10 },
   input: { backgroundColor: colors.card, color: colors.text, padding: 15, borderRadius: 10, fontSize: 16, borderWidth: 1, borderColor: colors.border },
+  
+  // ⭐ NEW: Style for the manual emoji input
+  iconInput: { backgroundColor: colors.card, color: colors.text, padding: 12, borderRadius: 10, borderWidth: 1, borderColor: colors.border, marginRight: 10, height: 55, width: 55, textAlign: 'center', fontSize: 24 },
 
   chipContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   chip: { backgroundColor: colors.card, paddingVertical: 12, paddingHorizontal: 18, borderRadius: 12, borderWidth: 1, borderColor: colors.border },
