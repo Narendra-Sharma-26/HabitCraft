@@ -2,14 +2,15 @@ const Habit = require("../models/Habit");
 const HabitLog = require("../models/HabitLog");
 const Schedule = require("../models/Schedule");
 const { findAvailableTime } = require("../utils/scheduler");
-const { getTodayIST, getPastISTDate } = require("../utils/dateHelper"); // ⭐ Added IST helpers
+const { getTodayIST, getPastISTDate } = require("../utils/dateHelper"); 
 
 // @desc    Add new habit
 // @route   POST /api/habits
 // @access  Private
 const addHabit = async (req, res) => {
   try {
-    const { title, difficulty, preferredTime, duration, timeWindow } = req.body; 
+    // ⭐ ADDED 'icon' here so the backend extracts it from the frontend request
+    const { title, icon, difficulty, preferredTime, duration, timeWindow } = req.body; 
     const userId = req.user._id;
 
     const schedule = await Schedule.findOne({ userId });
@@ -20,8 +21,7 @@ const addHabit = async (req, res) => {
     const existingHabits = await Habit.find({ userId, isActive: true, isArchived: false });
     const activeCount = existingHabits.length;
 
-    // ⭐ THE FIX: Use IST date helper for the 30-day window calculation
-    const thirtyDaysAgoStr = getPastISTDate(29); // 29 days ago + today = 30 days
+    const thirtyDaysAgoStr = getPastISTDate(29); 
     const logsLast30Days = await HabitLog.find({
         userId, 
         date: { $gte: thirtyDaysAgoStr }, 
@@ -30,7 +30,6 @@ const addHabit = async (req, res) => {
     
     let consistency = 0;
     if (activeCount > 0) {
-        // Use a Set to ensure duplicate daily logs don't inflate consistency (optional but recommended safety net)
         const uniqueDays = new Set(logsLast30Days.map(log => {
            return typeof log.date === 'string' ? log.date.split("T")[0] : log.date.toISOString().split("T")[0];
         })).size;
@@ -38,7 +37,6 @@ const addHabit = async (req, res) => {
         consistency = Math.round((uniqueDays / (activeCount * 30)) * 100);
     }
 
-    // DYNAMIC HABIT LIMIT LOGIC
     if (activeCount >= 10) {
         return res.status(400).json({ message: "Absolute limit reached. You can only have 10 active habits." });
     } else if (activeCount >= 7 && consistency <= 95) {
@@ -53,7 +51,8 @@ const addHabit = async (req, res) => {
     const scheduledTime = findAvailableTime(schedule, preferredTime, existingHabits, habitDuration, timeWindow);
 
     const habit = await Habit.create({
-      userId, title, difficulty, preferredTime, timeWindow, scheduledTime, duration: habitDuration, 
+      // ⭐ ADDED 'icon' here to securely save it to the MongoDB document
+      userId, title, icon, difficulty, preferredTime, timeWindow, scheduledTime, duration: habitDuration, 
     });
 
     res.status(201).json({ message: "Habit added successfully", habit });
@@ -94,16 +93,13 @@ const toggleHabit = async (req, res) => {
       return res.status(404).json({ message: "Habit not found" });
     }
 
-    // ⭐ THE FIX: Slice the IST helper string to get an accurate "YYYY-MM"
     const currentMonth = getTodayIST().slice(0, 7); 
 
-    // Reset counter if new month
     if (habit.pauseMonth !== currentMonth) {
       habit.pauseMonth = currentMonth;
       habit.pauseCount = 0;
     }
 
-    // If trying to pause
     if (habit.isActive) {
       if (habit.pauseCount >= 4) {
         return res.status(400).json({
@@ -123,7 +119,6 @@ const toggleHabit = async (req, res) => {
       });
     }
 
-    // If resuming (always allowed)
     habit.isActive = true;
     await habit.save();
 
@@ -151,7 +146,7 @@ const archiveHabit = async (req, res) => {
     }
 
     habit.isArchived = true;
-    habit.isActive = false; // ensure it’s not active
+    habit.isActive = false; 
     await habit.save();
 
     res.json({
@@ -168,7 +163,8 @@ const archiveHabit = async (req, res) => {
 // @access  Private
 const editHabit = async (req, res) => {
   try {
-    const { title, difficulty, duration, scheduledTime } = req.body;
+    // ⭐ ADDED 'icon' here so the backend extracts it during an update
+    const { title, icon, difficulty, duration, scheduledTime } = req.body;
     const userId = req.user._id;
     const habitId = req.params.id;
 
@@ -178,7 +174,9 @@ const editHabit = async (req, res) => {
     // Update fields
     if (title) habit.title = title;
     
-    // ⭐ NEW: Backend logic to securely enforce the 30-day difficulty limit
+    // ⭐ ADDED: Securely save the new icon if the user selected one
+    if (icon) habit.icon = icon;
+    
     if (difficulty && habit.difficulty !== difficulty) {
       if (habit.difficultyUpdatedAt) {
         const lastUpdate = new Date(habit.difficultyUpdatedAt);
@@ -196,7 +194,6 @@ const editHabit = async (req, res) => {
 
     if (duration) habit.duration = Number(duration);
     
-    // Allow user to manually override the AI's time!
     if (scheduledTime) habit.scheduledTime = scheduledTime; 
 
     await habit.save();
