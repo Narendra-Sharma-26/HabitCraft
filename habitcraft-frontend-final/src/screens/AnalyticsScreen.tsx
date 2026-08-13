@@ -2,18 +2,20 @@ import React, { useState, useCallback, useContext } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import api from '../api/axiosConfig';
-import { Colors } from '../theme/Colors';
 import { AlertContext } from '../context/AlertContext';
+import { ThemeContext } from '../context/ThemeContext';
 
 export default function AnalyticsScreen() {
   const [healthData, setHealthData] = useState<any[]>([]);
   const [heatmapData, setHeatmapData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const { showAlert } = useContext(AlertContext);
+  
+  const { colors, isDark } = useContext(ThemeContext);
+  const styles = getStyles(colors, isDark);
 
   const fetchAnalyticsData = async () => {
     try {
-      // ⭐ RESTORED: Independent catches to prevent API hiccups from crashing the app
       const healthReq = api.get('/habits/health').catch(err => {
         console.log("Health Error:", err.message);
         return { data: { habits: [] } };
@@ -26,7 +28,6 @@ export default function AnalyticsScreen() {
 
       const [healthRes, heatmapRes] = await Promise.all([healthReq, heatmapReq]);
 
-      // ⭐ SAFER SETTING: Enforce fallback to empty arrays even if the payload is malformed
       setHealthData(healthRes?.data?.habits || []);
       setHeatmapData(heatmapRes?.data?.heatmap || []);
     } catch (error: any) {
@@ -39,19 +40,19 @@ export default function AnalyticsScreen() {
   useFocusEffect(useCallback(() => { fetchAnalyticsData(); }, []));
 
   const getScoreColor = (score: number) => {
-    if (score >= 80) return Colors.success; 
-    if (score >= 50) return Colors.accent; 
-    return Colors.error; 
+    if (score >= 80) return colors.success; 
+    if (score >= 50) return colors.accent; 
+    return colors.error; 
   };
 
   const getHeatmapColor = (completed: number) => {
-    if (completed === 0) return '#2A2A3D'; 
+    if (completed === 0) return colors.background; 
     if (completed <= 1) return 'rgba(76, 175, 80, 0.4)'; 
     if (completed <= 3) return 'rgba(76, 175, 80, 0.7)'; 
     return 'rgba(76, 175, 80, 1)'; 
   };
 
-  if (loading) return <View style={[styles.container, { justifyContent: 'center' }]}><ActivityIndicator size="large" color={Colors.primary} /></View>;
+  if (loading) return <View style={[styles.container, { justifyContent: 'center' }]}><ActivityIndicator size="large" color={colors.primary} /></View>;
 
   return (
     <ScrollView 
@@ -69,7 +70,6 @@ export default function AnalyticsScreen() {
         <Text style={styles.sectionSubtitle}>Your daily habit completion grid.</Text>
         
         <View style={styles.heatmapWrapper}>
-          {/* ⭐ SAFER CHECK: Ensures the data actually exists before trying to map it */}
           {heatmapData && heatmapData.length > 0 ? (
             heatmapData.map((day, index) => (
               <View 
@@ -84,7 +84,7 @@ export default function AnalyticsScreen() {
 
         <View style={styles.legend}>
             <Text style={styles.legendText}>Less</Text>
-            <View style={[styles.legendSquare, { backgroundColor: '#2A2A3D' }]} />
+            <View style={[styles.legendSquare, { backgroundColor: colors.background }]} />
             <View style={[styles.legendSquare, { backgroundColor: 'rgba(76, 175, 80, 0.4)' }]} />
             <View style={[styles.legendSquare, { backgroundColor: 'rgba(76, 175, 80, 0.7)' }]} />
             <View style={[styles.legendSquare, { backgroundColor: 'rgba(76, 175, 80, 1)' }]} />
@@ -94,14 +94,13 @@ export default function AnalyticsScreen() {
 
       <Text style={[styles.sectionTitle, { marginTop: 20 }]}>Habit Health</Text>
       
-      {/* ⭐ SAFER CHECK: Hard check for undefined to prevent the "Cannot read property 'map'" error */}
       {!healthData || healthData.length === 0 ? (
         <View style={styles.emptyState}>
           <Text style={styles.emptyText}>No habits to analyze.</Text>
         </View>
       ) : (
         healthData.map((habit, index) => {
-          if (!habit) return null; // Failsafe
+          if (!habit) return null; 
           const score = Math.round(habit.healthScore || 0);
           
           return (
@@ -124,33 +123,33 @@ export default function AnalyticsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
+const getStyles = (colors: any, isDark: boolean) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
   scrollContent: { padding: 20, paddingBottom: 50 },
   
   header: { marginTop: 40, marginBottom: 30 },
-  title: { fontSize: 32, fontWeight: 'bold', color: Colors.text },
-  subtitle: { fontSize: 16, color: Colors.textMuted, marginTop: 5 },
+  title: { fontSize: 32, fontWeight: 'bold', color: colors.text },
+  subtitle: { fontSize: 16, color: colors.textMuted, marginTop: 5 },
   
-  sectionContainer: { backgroundColor: Colors.card, padding: 20, borderRadius: 16, marginBottom: 25, borderWidth: 1, borderColor: Colors.border },
-  sectionTitle: { fontSize: 20, fontWeight: 'bold', color: Colors.text, marginBottom: 5 },
-  sectionSubtitle: { fontSize: 14, color: Colors.textMuted, marginBottom: 15 },
+  sectionContainer: { backgroundColor: colors.card, padding: 20, borderRadius: 16, marginBottom: 25, borderWidth: 1, borderColor: colors.border },
+  sectionTitle: { fontSize: 20, fontWeight: 'bold', color: colors.text, marginBottom: 5 },
+  sectionSubtitle: { fontSize: 14, color: colors.textMuted, marginBottom: 15 },
   
   heatmapWrapper: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, justifyContent: 'flex-start', paddingHorizontal: 5 },
-  heatmapSquare: { width: 16, height: 16, borderRadius: 3 },
+  heatmapSquare: { width: 16, height: 16, borderRadius: 3, borderWidth: isDark ? 0 : 1, borderColor: colors.border },
   
   legend: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', marginTop: 15, gap: 5 },
-  legendText: { color: Colors.textMuted, fontSize: 12, marginHorizontal: 4 },
-  legendSquare: { width: 10, height: 10, borderRadius: 2 },
+  legendText: { color: colors.textMuted, fontSize: 12, marginHorizontal: 4 },
+  legendSquare: { width: 10, height: 10, borderRadius: 2, borderWidth: isDark ? 0 : 1, borderColor: colors.border },
 
   emptyState: { alignItems: 'center', marginTop: 40 },
-  emptyText: { color: Colors.text, fontSize: 18, fontWeight: 'bold' },
-  emptySubtext: { color: Colors.textMuted, fontSize: 14, marginTop: 5 },
+  emptyText: { color: colors.text, fontSize: 18, fontWeight: 'bold' },
+  emptySubtext: { color: colors.textMuted, fontSize: 14, marginTop: 5 },
 
-  card: { backgroundColor: Colors.card, padding: 20, borderRadius: 12, marginBottom: 15, borderWidth: 1, borderColor: Colors.border },
+  card: { backgroundColor: colors.card, padding: 20, borderRadius: 12, marginBottom: 15, borderWidth: 1, borderColor: colors.border },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
-  habitTitle: { color: Colors.text, fontSize: 18, fontWeight: 'bold' },
+  habitTitle: { color: colors.text, fontSize: 18, fontWeight: 'bold' },
   scoreText: { fontSize: 18, fontWeight: 'bold' },
-  progressBarBackground: { height: 8, backgroundColor: Colors.background, borderRadius: 4, overflow: 'hidden' },
+  progressBarBackground: { height: 8, backgroundColor: colors.background, borderRadius: 4, overflow: 'hidden' },
   progressBarFill: { height: '100%', borderRadius: 4 },
 });

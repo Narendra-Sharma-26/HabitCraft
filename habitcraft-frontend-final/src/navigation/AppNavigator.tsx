@@ -3,6 +3,7 @@ import { ActivityIndicator, View } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { AuthContext } from '../context/AuthContext';
+import { ThemeContext } from '../context/ThemeContext'; // ⭐ Import the ThemeContext
 
 // Screens
 import WelcomeScreen from '../screens/WelcomeScreen';
@@ -20,19 +21,21 @@ const Tab = createBottomTabNavigator();
 
 // 👇 Bottom Tab Menu
 function MainTabNavigator() {
+  const { colors } = useContext(ThemeContext); // ⭐ Extract dynamic colors
+
   return (
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: '#2A2A3D',
-          borderTopColor: '#3A3A4D',
+          backgroundColor: colors.card, // ⭐ Dynamic background
+          borderTopColor: colors.border, // ⭐ Dynamic border
           paddingBottom: 5,
           paddingTop: 5,
           height: 60,
         },
-        tabBarActiveTintColor: '#6C63FF',
-        tabBarInactiveTintColor: '#A0A0B0',
+        tabBarActiveTintColor: colors.primary, // ⭐ Dynamic active color
+        tabBarInactiveTintColor: colors.textMuted, // ⭐ Dynamic inactive color
       }}
     >
       <Tab.Screen name="Home" component={DashboardScreen} options={{ tabBarIconStyle: { display: 'none' }, tabBarLabelPosition: 'beside-icon' }} />
@@ -45,11 +48,12 @@ function MainTabNavigator() {
 
 export default function AppNavigator() {
   const { userToken, isLoading } = useContext(AuthContext);
+  const { colors } = useContext(ThemeContext); // ⭐ Extract dynamic colors for the loading screen
 
   if (isLoading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', backgroundColor: '#1E1E2C' }}>
-        <ActivityIndicator size="large" color="#6C63FF" />
+      <View style={{ flex: 1, justifyContent: 'center', backgroundColor: colors.background }}>
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }

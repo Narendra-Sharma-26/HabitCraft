@@ -1,8 +1,8 @@
 import React, { useState, useContext } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView, Keyboard } from 'react-native';
 import api from '../api/axiosConfig';
-import { Colors } from '../theme/Colors';
 import { AlertContext } from '../context/AlertContext'; 
+import { ThemeContext } from '../context/ThemeContext';
 import { scheduleTaskReminders } from '../services/NotificationService'; 
 
 const HABIT_SUGGESTIONS = [
@@ -19,6 +19,8 @@ const HABIT_SUGGESTIONS = [
 
 export default function AddHabitScreen({ navigation }: any) {
   const { showAlert } = useContext(AlertContext);
+  const { colors } = useContext(ThemeContext);
+  const styles = getStyles(colors);
 
   const [title, setTitle] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -89,7 +91,7 @@ export default function AddHabitScreen({ navigation }: any) {
   );
 
   return (
-    <View style={{ flex: 1, backgroundColor: Colors.background }}>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
         <ScrollView 
           style={styles.container} 
           contentContainerStyle={{ paddingBottom: 40 }} 
@@ -108,11 +110,11 @@ export default function AddHabitScreen({ navigation }: any) {
                 <TextInput 
                     style={[
                       styles.input, 
-                      { paddingRight: 45 }, // Prevents text from overlapping the clear button
+                      { paddingRight: 45 }, 
                       isDropdownVisible ? styles.inputWithDropdownOpen : null
                     ]} 
                     placeholder="e.g., Read 10 pages, Gym..." 
-                    placeholderTextColor={Colors.textMuted}
+                    placeholderTextColor={colors.textMuted}
                     value={title}
                     onChangeText={(text) => {
                       setTitle(text);
@@ -125,13 +127,12 @@ export default function AddHabitScreen({ navigation }: any) {
                     }}
                 />
                 
-                {/* ⭐ NEW: Clear Button conditionally rendered when there is text */}
                 {title.length > 0 && (
                   <TouchableOpacity 
                     style={styles.clearButton} 
                     onPress={() => {
                       setTitle('');
-                      setShowSuggestions(false); // Optionally hide dropdown when cleared
+                      setShowSuggestions(false); 
                     }}
                   >
                     <Text style={styles.clearButtonText}>✕</Text>
@@ -173,7 +174,7 @@ export default function AddHabitScreen({ navigation }: any) {
                 <TextInput 
                 style={[styles.input, { marginTop: 15 }]} 
                 placeholder="Enter total minutes (e.g., 120)" 
-                placeholderTextColor={Colors.textMuted}
+                placeholderTextColor={colors.textMuted}
                 keyboardType="numeric" 
                 value={customDuration}
                 onChangeText={setCustomDuration}
@@ -204,16 +205,16 @@ export default function AddHabitScreen({ navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: any) => StyleSheet.create({
   container: { flex: 1, padding: 20 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 30, marginBottom: 25 },
-  headerTitle: { color: Colors.text, fontSize: 22, fontWeight: 'bold' },
+  headerTitle: { color: colors.text, fontSize: 22, fontWeight: 'bold' },
   
-  cardSection: { backgroundColor: Colors.card, padding: 20, borderRadius: 16, marginBottom: 15, borderWidth: 1, borderColor: Colors.border, zIndex: 1 },
-  label: { color: Colors.text, fontSize: 16, fontWeight: 'bold', marginBottom: 12 },
-  helperText: { color: Colors.textMuted, fontSize: 13, marginBottom: 15, marginTop: -8 },
+  cardSection: { backgroundColor: colors.card, padding: 20, borderRadius: 16, marginBottom: 15, borderWidth: 1, borderColor: colors.border, zIndex: 1 },
+  label: { color: colors.text, fontSize: 16, fontWeight: 'bold', marginBottom: 12 },
+  helperText: { color: colors.textMuted, fontSize: 13, marginBottom: 15, marginTop: -8 },
   
-  input: { backgroundColor: Colors.background, color: Colors.text, padding: 15, borderRadius: 12, fontSize: 16, borderWidth: 1, borderColor: Colors.border },
+  input: { backgroundColor: colors.background, color: colors.text, padding: 15, borderRadius: 12, fontSize: 16, borderWidth: 1, borderColor: colors.border },
   
   inputWithDropdownOpen: {
     borderBottomLeftRadius: 0,
@@ -221,48 +222,47 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0,
   },
   
-  // ⭐ NEW: Clear button styles
   clearButton: {
     position: 'absolute',
     right: 15,
-    top: 15, // Aligns perfectly with the 15px padding of the TextInput
+    top: 15, 
     zIndex: 20,
-    padding: 2, // Gives a slightly larger touch target area
+    padding: 2, 
   },
   clearButtonText: {
-    color: Colors.textMuted,
+    color: colors.textMuted,
     fontSize: 18,
     fontWeight: 'bold',
   },
 
   suggestionsContainer: { 
-    backgroundColor: Colors.background, 
+    backgroundColor: colors.background, 
     borderBottomLeftRadius: 12, 
     borderBottomRightRadius: 12,
     borderWidth: 1, 
     borderTopWidth: 0,
-    borderColor: Colors.border, 
+    borderColor: colors.border, 
     maxHeight: 180, 
   },
   suggestionItem: { 
     padding: 15, 
     borderBottomWidth: 1, 
-    borderBottomColor: Colors.border 
+    borderBottomColor: colors.border 
   },
   suggestionText: { 
-    color: Colors.text, 
+    color: colors.text, 
     fontSize: 15 
   },
 
   chipContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  chip: { backgroundColor: Colors.background, paddingVertical: 12, paddingHorizontal: 16, borderRadius: 12, borderWidth: 1, borderColor: Colors.border },
-  chipSelected: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  chipText: { color: Colors.textMuted, fontWeight: 'bold', fontSize: 14 },
+  chip: { backgroundColor: colors.background, paddingVertical: 12, paddingHorizontal: 16, borderRadius: 12, borderWidth: 1, borderColor: colors.border },
+  chipSelected: { backgroundColor: colors.primary, borderColor: colors.primary },
+  chipText: { color: colors.textMuted, fontWeight: 'bold', fontSize: 14 },
   chipTextSelected: { color: '#FFF' },
   
-  primaryButton: { backgroundColor: Colors.primary, padding: 18, borderRadius: 14, alignItems: 'center', marginTop: 20, shadowColor: Colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 5 },
+  primaryButton: { backgroundColor: colors.primary, padding: 18, borderRadius: 14, alignItems: 'center', marginTop: 20, shadowColor: colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 5 },
   buttonText: { color: '#FFF', fontSize: 18, fontWeight: 'bold' },
 
-  cancelButton: { backgroundColor: Colors.card, padding: 18, borderRadius: 14, alignItems: 'center', marginTop: 15, borderWidth: 1, borderColor: Colors.error },
-  cancelButtonText: { color: Colors.error, fontSize: 18, fontWeight: 'bold' }
+  cancelButton: { backgroundColor: colors.card, padding: 18, borderRadius: 14, alignItems: 'center', marginTop: 15, borderWidth: 1, borderColor: colors.error },
+  cancelButtonText: { color: colors.error, fontSize: 18, fontWeight: 'bold' }
 });

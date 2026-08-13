@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useContext } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, Modal
@@ -6,21 +6,19 @@ import {
 import api from '../api/axiosConfig';
 import { AuthContext } from '../context/AuthContext';
 import { AlertContext } from '../context/AlertContext';
-import { Colors } from '../theme/Colors';
+import { ThemeContext } from '../context/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
-
-// Imported the native Google Sign-In library
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 
-// Configure Google Sign-In globally at the file level
-// Note: We use the WEB Client ID here so that the backend can verify the token.
 GoogleSignin.configure({
-// webClientId: '300553291530-lpr49if7mhm3njtou0iqol3h5q46f8vm.apps.googleusercontent.com',
   webClientId: '300553291530-jks22imuhn5k71joav9oac6ojbvvis4p.apps.googleusercontent.com',
   offlineAccess: true,
 });
 
 export default function AuthScreen() {
+  const { colors } = useContext(ThemeContext);
+  const styles = getStyles(colors);
+
   const [isLogin, setIsLogin] = useState(true);
   const [name, setName] = useState('');
 
@@ -31,7 +29,6 @@ export default function AuthScreen() {
   const [passwordError, setPasswordError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
-  // Added state for Confirm Password
   const [confirmPassword, setConfirmPassword] = useState('');
   const [confirmPasswordError, setConfirmPasswordError] = useState('');
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -50,7 +47,6 @@ export default function AuthScreen() {
   const { login } = useContext(AuthContext);
   const { showAlert } = useContext(AlertContext);
 
-  // Clears all fields including the new confirm password ones
   const handleSwitchMode = () => {
     setIsLogin(!isLogin);
     setName('');
@@ -62,21 +58,14 @@ export default function AuthScreen() {
     setConfirmPasswordError('');
   };
 
-  // Native trigger for Google Sign-In flow
   const signInWithGoogle = async () => {
     try {
       await GoogleSignin.hasPlayServices();
-      
-      // Add this block to force the account picker to show every time
       try {
         await GoogleSignin.signOut();
-      } catch (error) {
-        // Silently ignore if there is no active session to sign out of
-      }
+      } catch (error) {}
 
       const response = await GoogleSignin.signIn();
-
-      // Handles token access compatibility across library versions safely
       const idToken = response.data?.idToken || (response as any).idToken;
 
       if (idToken) {
@@ -86,7 +75,6 @@ export default function AuthScreen() {
       }
     } catch (error: any) {
       if (error.code === statusCodes.SIGN_IN_CANCELLED) {
-        // User cancelled the login flow gracefully
       } else if (error.code === statusCodes.IN_PROGRESS) {
         showAlert("In Progress", "Sign in is already in progress.", "⏳");
       } else if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
@@ -101,10 +89,7 @@ export default function AuthScreen() {
     setLoading(true);
     try {
       const res = await api.post('/auth/google', { idToken });
-      
-      // Pass both token and user data to storage
       login(res.data.token, res.data.user);
-      
     } catch (error: any) {
       showAlert("Failed", "Google authentication failed in backend.", "⚠️");
     } finally {
@@ -122,8 +107,6 @@ export default function AuthScreen() {
 
   const validatePassword = (text: string) => {
     setPassword(text);
-    
-    // Check if the user is changing the original password while the confirm password is already filled
     if (!isLogin && confirmPassword.length > 0) {
       if (text !== confirmPassword) {
         setConfirmPasswordError('Passwords do not match.');
@@ -131,7 +114,6 @@ export default function AuthScreen() {
         setConfirmPasswordError('');
       }
     }
-
     if (!text) {
       setPasswordError('');
       return;
@@ -149,7 +131,6 @@ export default function AuthScreen() {
     }
   };
 
-  // New function to handle Confirm Password validation
   const validateConfirmPassword = (text: string) => {
     setConfirmPassword(text);
     if (!text) {
@@ -174,7 +155,6 @@ export default function AuthScreen() {
       return;
     }
 
-    // Double check right before submitting
     if (!isLogin && password !== confirmPassword) {
       setConfirmPasswordError('Passwords do not match.');
       showAlert("Hold up", "Passwords do not match.", "✋");
@@ -238,7 +218,7 @@ export default function AuthScreen() {
   };
 
   const getBorderStyle = (inputName: string, error: string) => ({
-    borderColor: error ? Colors.error : (focusedInput === inputName ? Colors.primary : Colors.border),
+    borderColor: error ? colors.error : (focusedInput === inputName ? colors.primary : colors.border),
     borderWidth: 1.5,
   });
 
@@ -257,13 +237,13 @@ export default function AuthScreen() {
             <View style={[styles.inputContainer, getBorderStyle('name', '')]}>
               <TextInput
                 style={styles.inputText}
-                placeholder="Full Name" placeholderTextColor={Colors.textMuted}
+                placeholder="Full Name" placeholderTextColor={colors.textMuted}
                 onFocus={() => setFocusedInput('name')} onBlur={() => setFocusedInput(null)}
                 value={name} onChangeText={setName}
               />
               {name.length > 0 && (
                 <TouchableOpacity style={styles.iconButton} onPress={() => setName('')}>
-                  <Ionicons name="close-circle" size={20} color={Colors.textMuted} />
+                  <Ionicons name="close-circle" size={20} color={colors.textMuted} />
                 </TouchableOpacity>
               )}
             </View>
@@ -272,14 +252,14 @@ export default function AuthScreen() {
           <View style={[styles.inputContainer, getBorderStyle('email', emailError)]}>
             <TextInput
               style={styles.inputText}
-              placeholder="Email Address" placeholderTextColor={Colors.textMuted}
+              placeholder="Email Address" placeholderTextColor={colors.textMuted}
               keyboardType="email-address" autoCapitalize="none"
               onFocus={() => setFocusedInput('email')} onBlur={() => setFocusedInput(null)}
               value={email} onChangeText={validateEmail}
             />
             {email.length > 0 && (
               <TouchableOpacity style={styles.iconButton} onPress={() => validateEmail('')}>
-                <Ionicons name="close-circle" size={20} color={Colors.textMuted} />
+                <Ionicons name="close-circle" size={20} color={colors.textMuted} />
               </TouchableOpacity>
             )}
           </View>
@@ -289,7 +269,7 @@ export default function AuthScreen() {
             <TextInput
               style={styles.inputText}
               placeholder="Password"
-              placeholderTextColor={Colors.textMuted}
+              placeholderTextColor={colors.textMuted}
               secureTextEntry={!showPassword}
               onFocus={() => setFocusedInput('password')}
               onBlur={() => setFocusedInput(null)}
@@ -297,19 +277,18 @@ export default function AuthScreen() {
               onChangeText={validatePassword}
             />
             <TouchableOpacity style={styles.iconButton} onPress={() => setShowPassword(!showPassword)}>
-              <Ionicons name={showPassword ? "eye-outline" : "eye-off-outline"} size={22} color={Colors.textMuted} />
+              <Ionicons name={showPassword ? "eye-outline" : "eye-off-outline"} size={22} color={colors.textMuted} />
             </TouchableOpacity>
           </View>
           {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
 
-          {/* Confirm Password Field (Only shown during Sign Up) */}
           {!isLogin && (
             <>
               <View style={[styles.inputContainer, getBorderStyle('confirmPassword', confirmPasswordError)]}>
                 <TextInput
                   style={styles.inputText}
                   placeholder="Confirm Password"
-                  placeholderTextColor={Colors.textMuted}
+                  placeholderTextColor={colors.textMuted}
                   secureTextEntry={!showConfirmPassword}
                   onFocus={() => setFocusedInput('confirmPassword')}
                   onBlur={() => setFocusedInput(null)}
@@ -317,7 +296,7 @@ export default function AuthScreen() {
                   onChangeText={validateConfirmPassword}
                 />
                 <TouchableOpacity style={styles.iconButton} onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
-                  <Ionicons name={showConfirmPassword ? "eye-outline" : "eye-off-outline"} size={22} color={Colors.textMuted} />
+                  <Ionicons name={showConfirmPassword ? "eye-outline" : "eye-off-outline"} size={22} color={colors.textMuted} />
                 </TouchableOpacity>
               </View>
               {confirmPasswordError ? <Text style={styles.errorText}>{confirmPasswordError}</Text> : null}
@@ -351,7 +330,6 @@ export default function AuthScreen() {
         </View>
       </ScrollView>
 
-      {/* Forgot Password Modal Remains the Same */}
       <Modal transparent visible={forgotModalVisible} animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -366,7 +344,7 @@ export default function AuthScreen() {
               <TextInput
                 style={styles.modalInput}
                 placeholder="Email Address"
-                placeholderTextColor={Colors.textMuted}
+                placeholderTextColor={colors.textMuted}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 value={resetEmail}
@@ -377,23 +355,23 @@ export default function AuthScreen() {
                 <TextInput
                   style={styles.modalInput}
                   placeholder="6-Digit OTP"
-                  placeholderTextColor={Colors.textMuted}
+                  placeholderTextColor={colors.textMuted}
                   keyboardType="numeric"
                   maxLength={6}
                   value={otpCode}
                   onChangeText={setOtpCode}
                 />
-                <View style={[styles.inputContainer, { marginBottom: 15 }]}>
+                <View style={[styles.inputContainer, { marginBottom: 15, borderColor: colors.border, borderWidth: 1 }]}>
                   <TextInput
                     style={styles.inputText}
                     placeholder="New Password"
-                    placeholderTextColor={Colors.textMuted}
+                    placeholderTextColor={colors.textMuted}
                     secureTextEntry={!showResetPassword}
                     value={resetNewPassword}
                     onChangeText={setResetNewPassword}
                   />
                   <TouchableOpacity style={styles.iconButton} onPress={() => setShowResetPassword(!showResetPassword)}>
-                    <Ionicons name={showResetPassword ? "eye-outline" : "eye-off-outline"} size={22} color={Colors.textMuted} />
+                    <Ionicons name={showResetPassword ? "eye-outline" : "eye-off-outline"} size={22} color={colors.textMuted} />
                   </TouchableOpacity>
                 </View>
               </>
@@ -426,24 +404,24 @@ export default function AuthScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
+const getStyles = (colors: any) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
   scrollContent: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 25, paddingVertical: 40 },
   header: { marginBottom: 40 },
-  title: { fontSize: 34, fontWeight: 'bold', color: Colors.text },
-  subtitle: { fontSize: 16, color: Colors.textMuted, marginTop: 8 },
+  title: { fontSize: 34, fontWeight: 'bold', color: colors.text },
+  subtitle: { fontSize: 16, color: colors.textMuted, marginTop: 8 },
   form: { width: '100%' },
 
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.card,
+    backgroundColor: colors.card,
     borderRadius: 14,
     marginBottom: 8,
   },
   inputText: {
     flex: 1,
-    color: Colors.text,
+    color: colors.text,
     padding: 18,
     fontSize: 16,
   },
@@ -453,33 +431,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 
-  errorText: { color: Colors.error, fontSize: 12, marginBottom: 12, marginLeft: 4, fontWeight: '500' },
+  errorText: { color: colors.error, fontSize: 12, marginBottom: 12, marginLeft: 4, fontWeight: '500' },
 
   forgotPasswordContainer: { alignItems: 'flex-end', marginBottom: 15, marginTop: -2 },
-  forgotPasswordText: { color: Colors.primary, fontWeight: 'bold', fontSize: 14 },
+  forgotPasswordText: { color: colors.primary, fontWeight: 'bold', fontSize: 14 },
 
   primaryButton: {
-    backgroundColor: Colors.primary, padding: 18, borderRadius: 14,
+    backgroundColor: colors.primary, padding: 18, borderRadius: 14,
     alignItems: 'center', marginTop: 10, elevation: 4,
   },
   buttonText: { color: '#FFF', fontSize: 18, fontWeight: 'bold' },
   dividerContainer: { flexDirection: 'row', alignItems: 'center', marginVertical: 35 },
-  divider: { flex: 1, height: 1, backgroundColor: Colors.border },
-  dividerText: { color: Colors.textMuted, paddingHorizontal: 15, fontSize: 13, fontWeight: 'bold' },
-  googleButton: { backgroundColor: '#FFF', padding: 18, borderRadius: 14, alignItems: 'center', borderWidth: 1, borderColor: '#DDD' },
-  googleButtonText: { color: '#000', fontSize: 16, fontWeight: 'bold' },
+  divider: { flex: 1, height: 1, backgroundColor: colors.border },
+  dividerText: { color: colors.textMuted, paddingHorizontal: 15, fontSize: 13, fontWeight: 'bold' },
+  googleButton: { backgroundColor: colors.card, padding: 18, borderRadius: 14, alignItems: 'center', borderWidth: 1, borderColor: colors.border },
+  googleButtonText: { color: colors.text, fontSize: 16, fontWeight: 'bold' },
   toggleButton: { marginTop: 35, alignItems: 'center' },
-  toggleText: { color: Colors.textMuted, fontSize: 15 },
-  toggleAction: { color: Colors.primary, fontWeight: 'bold' },
+  toggleText: { color: colors.textMuted, fontSize: 15 },
+  toggleAction: { color: colors.primary, fontWeight: 'bold' },
 
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
-  modalContent: { backgroundColor: Colors.card, width: '100%', borderTopLeftRadius: 25, borderTopRightRadius: 25, padding: 30, borderWidth: 1, borderColor: Colors.border },
-  modalTitle: { color: Colors.text, fontSize: 24, fontWeight: 'bold', marginBottom: 10 },
-  modalMessage: { color: Colors.textMuted, fontSize: 15, marginBottom: 25, lineHeight: 22 },
-  modalInput: { backgroundColor: Colors.background, color: Colors.text, padding: 18, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, fontSize: 16, marginBottom: 15 },
+  modalContent: { backgroundColor: colors.card, width: '100%', borderTopLeftRadius: 25, borderTopRightRadius: 25, padding: 30, borderWidth: 1, borderColor: colors.border },
+  modalTitle: { color: colors.text, fontSize: 24, fontWeight: 'bold', marginBottom: 10 },
+  modalMessage: { color: colors.textMuted, fontSize: 15, marginBottom: 25, lineHeight: 22 },
+  modalInput: { backgroundColor: colors.background, color: colors.text, padding: 18, borderRadius: 12, borderWidth: 1, borderColor: colors.border, fontSize: 16, marginBottom: 15 },
   modalActions: { flexDirection: 'row', width: '100%', gap: 15, marginTop: 10 },
-  modalCancelBtn: { flex: 1, padding: 15, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center' },
-  modalCancelText: { color: Colors.text, fontSize: 16, fontWeight: 'bold' },
-  modalPrimaryBtn: { flex: 1, padding: 15, borderRadius: 12, backgroundColor: Colors.primary, alignItems: 'center' },
+  modalCancelBtn: { flex: 1, padding: 15, borderRadius: 12, backgroundColor: 'rgba(128,128,128,0.2)', alignItems: 'center' },
+  modalCancelText: { color: colors.text, fontSize: 16, fontWeight: 'bold' },
+  modalPrimaryBtn: { flex: 1, padding: 15, borderRadius: 12, backgroundColor: colors.primary, alignItems: 'center' },
   modalConfirmText: { color: '#FFF', fontSize: 16, fontWeight: 'bold' }
 });

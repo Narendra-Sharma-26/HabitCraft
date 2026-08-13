@@ -2,15 +2,13 @@ import React, { useState, useEffect, useContext } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator, Dimensions, Platform } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import api from '../api/axiosConfig';
-import { Colors } from '../theme/Colors';
 import { PieChart } from 'react-native-chart-kit';
 import { AlertContext } from '../context/AlertContext';
+import { ThemeContext } from '../context/ThemeContext';
 
 const screenWidth = Dimensions.get('window').width;
-
 const HABIT_COLORS = ['#6C63FF', '#4CAF50', '#FFD700', '#00D0FF', '#FF9F43', '#9b59b6', '#e84393'];
 
-// ⭐ FIXED: Strict null checking prevents "00:00" from failing as a falsy value
 const timeToMins = (timeStr: string) => {
   if (timeStr === undefined || timeStr === null || timeStr === '') return null;
   const [h, m] = timeStr.split(':').map(Number);
@@ -34,6 +32,8 @@ const hhmmToDate = (timeStr: string) => {
 export default function ScheduleScreen({ route, navigation }: any) {
   const isSetup = route?.params?.isSetup || false; 
   const { showAlert } = useContext(AlertContext);
+  const { colors, isDark } = useContext(ThemeContext);
+  const styles = getStyles(colors);
 
   const [wakeUpTime, setWakeUpTime] = useState('06:00');
   const [sleepTime, setSleepTime] = useState('22:00');
@@ -160,7 +160,6 @@ export default function ScheduleScreen({ route, navigation }: any) {
   };
 
   const generateChartData = () => {
-    // ⭐ FIXED: Fallback to 0 if timeToMins safely returns null for any reason
     const wakeMins = timeToMins(wakeUpTime) ?? 0;
     const sleepMins = timeToMins(sleepTime) ?? 0;
     
@@ -169,12 +168,11 @@ export default function ScheduleScreen({ route, navigation }: any) {
     const chartData = [{
       name: `Sleep`,
       minutes: sleepDuration,
-      color: '#2c3e50',
-      legendFontColor: Colors.textMuted,
+      color: isDark ? '#2c3e50' : '#94A3B8',
+      legendFontColor: colors.textMuted,
       legendFontSize: 12,
     }];
 
-    // ⭐ FIXED: Filter out slots that return null to prevent math errors
     let intervals = busySlots
       .map(slot => [timeToMins(slot.start), timeToMins(slot.end)])
       .filter(interval => interval[0] !== null && interval[1] !== null && interval[1]! > interval[0]!)
@@ -201,8 +199,8 @@ export default function ScheduleScreen({ route, navigation }: any) {
       chartData.push({
         name: `Busy`,
         minutes: totalBusyMins,
-        color: '#e74c3c',
-        legendFontColor: Colors.textMuted,
+        color: colors.error,
+        legendFontColor: colors.textMuted,
         legendFontSize: 12,
       });
     }
@@ -213,7 +211,7 @@ export default function ScheduleScreen({ route, navigation }: any) {
           name: habit.title,
           minutes: habit.duration || 30,
           color: HABIT_COLORS[index % HABIT_COLORS.length],
-          legendFontColor: Colors.textMuted,
+          legendFontColor: colors.textMuted,
           legendFontSize: 12,
         });
       }
@@ -226,8 +224,8 @@ export default function ScheduleScreen({ route, navigation }: any) {
       chartData.push({
         name: `Free Time`,
         minutes: freeMinutes,
-        color: '#FFFFFF', 
-        legendFontColor: Colors.textMuted,
+        color: colors.border, 
+        legendFontColor: colors.textMuted,
         legendFontSize: 12,
       });
     }
@@ -238,7 +236,7 @@ export default function ScheduleScreen({ route, navigation }: any) {
   if (loading) {
     return (
       <View style={[styles.container, { justifyContent: 'center' }]}>
-        <ActivityIndicator size="large" color={Colors.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -325,25 +323,25 @@ export default function ScheduleScreen({ route, navigation }: any) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background, padding: 20 },
+const getStyles = (colors: any) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background, padding: 20 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 30, marginBottom: 20 },
-  backBtn: { color: Colors.primary, fontSize: 16, fontWeight: 'bold' },
-  headerTitle: { color: Colors.text, fontSize: 20, fontWeight: 'bold' },
-  chartContainer: { alignItems: 'center', marginVertical: 20, backgroundColor: Colors.card, borderRadius: 15, paddingVertical: 15 },
+  backBtn: { color: colors.primary, fontSize: 16, fontWeight: 'bold' },
+  headerTitle: { color: colors.text, fontSize: 20, fontWeight: 'bold' },
+  chartContainer: { alignItems: 'center', marginVertical: 20, backgroundColor: colors.card, borderRadius: 15, paddingVertical: 15, borderWidth: 1, borderColor: colors.border },
   formSection: { marginTop: 10 },
-  label: { color: Colors.text, fontSize: 16, fontWeight: 'bold', marginBottom: 8, marginTop: 15 },
+  label: { color: colors.text, fontSize: 16, fontWeight: 'bold', marginBottom: 8, marginTop: 15 },
   
-  timePickerButton: { backgroundColor: Colors.card, padding: 15, borderRadius: 10, alignItems: 'center' },
-  timePickerHalf: { backgroundColor: Colors.card, padding: 12, borderRadius: 10, flex: 1, marginRight: 10, alignItems: 'center' },
-  timeText: { color: Colors.text, fontSize: 18, fontWeight: 'bold' },
-  timeSubtext: { color: Colors.textMuted, fontSize: 12, marginBottom: 4 },
+  timePickerButton: { backgroundColor: colors.card, padding: 15, borderRadius: 10, alignItems: 'center', borderWidth: 1, borderColor: colors.border },
+  timePickerHalf: { backgroundColor: colors.card, padding: 12, borderRadius: 10, flex: 1, marginRight: 10, alignItems: 'center', borderWidth: 1, borderColor: colors.border },
+  timeText: { color: colors.text, fontSize: 18, fontWeight: 'bold' },
+  timeSubtext: { color: colors.textMuted, fontSize: 12, marginBottom: 4 },
 
   busySlotRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },
   deleteBtn: { backgroundColor: 'rgba(255, 107, 107, 0.2)', padding: 15, borderRadius: 10, justifyContent: 'center' },
-  deleteBtnText: { color: Colors.error, fontWeight: 'bold', fontSize: 16 },
-  addButton: { padding: 15, borderRadius: 10, borderWidth: 1, borderColor: Colors.primary, borderStyle: 'dashed', alignItems: 'center', marginTop: 10, marginBottom: 30 },
-  addButtonText: { color: Colors.primary, fontWeight: 'bold', fontSize: 16 },
-  saveButton: { backgroundColor: Colors.success, padding: 18, borderRadius: 12, alignItems: 'center' },
+  deleteBtnText: { color: colors.error, fontWeight: 'bold', fontSize: 16 },
+  addButton: { padding: 15, borderRadius: 10, borderWidth: 1, borderColor: colors.primary, borderStyle: 'dashed', alignItems: 'center', marginTop: 10, marginBottom: 30 },
+  addButtonText: { color: colors.primary, fontWeight: 'bold', fontSize: 16 },
+  saveButton: { backgroundColor: colors.success, padding: 18, borderRadius: 12, alignItems: 'center' },
   saveButtonText: { color: '#FFF', fontSize: 18, fontWeight: 'bold' }
 });

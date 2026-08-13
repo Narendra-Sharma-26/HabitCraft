@@ -2,9 +2,8 @@ import React, { useContext, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView, Platform, Switch } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import api from '../api/axiosConfig';
-import { Colors } from '../theme/Colors';
 import { AlertContext } from '../context/AlertContext';
-// ⭐ Added cancelHabitReminders to the import
+import { ThemeContext } from '../context/ThemeContext';
 import { scheduleTaskReminders, setNativeRepeatingAlarm, cancelHabitReminders } from '../services/NotificationService';
 
 const dateToHHMM = (date: Date) => {
@@ -30,6 +29,8 @@ const timeToMins = (timeString: string) => {
 export default function EditHabitScreen({ route, navigation }: any) {
   const { habit } = route.params;
   const { showAlert } = useContext(AlertContext);
+  const { colors } = useContext(ThemeContext);
+  const styles = getStyles(colors);
 
   const [title, setTitle] = useState(habit.title);
   const [duration, setDuration] = useState(habit.duration ? habit.duration.toString() : '30');
@@ -45,11 +46,9 @@ export default function EditHabitScreen({ route, navigation }: any) {
 
   const difficulties = ["Easy", "Medium", "Hard"];
 
-  // ⭐ New Handler to enforce the once-a-month restriction
   const handleDifficultySelect = (selectedOption: string) => {
-    if (selectedOption === difficulty) return; // Ignore if they click the already selected option
+    if (selectedOption === difficulty) return; 
 
-    // Check if difficulty was changed within the last 30 days
     if (habit.difficultyUpdatedAt) {
       const lastUpdate = new Date(habit.difficultyUpdatedAt);
       const now = new Date();
@@ -161,7 +160,6 @@ export default function EditHabitScreen({ route, navigation }: any) {
       let alarmMessage = "";
 
       if (scheduledTime) {
-        // ⭐ FIX FOR ISSUE 3: Cancel old reminders before setting new ones
         await cancelHabitReminders(habit._id);
         await scheduleTaskReminders(habit._id, title, scheduledTime);
 
@@ -189,10 +187,7 @@ export default function EditHabitScreen({ route, navigation }: any) {
         setDeleting(true);
         try {
           await api.delete(`/habits/${habit._id}`);
-
-          // ⭐ Clear phantom notifications immediately after successful deletion
           await cancelHabitReminders(habit._id);
-
           navigation.goBack();
         } catch (error) {
           showAlert("Error", "Failed to delete habit.", "⚠️");
@@ -241,7 +236,6 @@ export default function EditHabitScreen({ route, navigation }: any) {
       <TextInput style={styles.input} value={title} onChangeText={setTitle} />
 
       <Text style={styles.label}>Difficulty</Text>
-      {/* ⭐ Swapped basic setDifficulty for handleDifficultySelect */}
       {renderChips(difficulties, difficulty, handleDifficultySelect)}
 
       <Text style={[styles.label, { marginTop: 25 }]}>Scheduled Time</Text>
@@ -265,13 +259,14 @@ export default function EditHabitScreen({ route, navigation }: any) {
 
       <View style={styles.toggleRow}>
         <View style={{ flex: 1, paddingRight: 10 }}>
-          <Text style={styles.label}>Physical Alarm 🔔</Text>
+          <Text style={styles.labelPhysical}>Physical Alarm 🔔</Text>
           <Text style={styles.helperText}>Rings loudly in your native clock app</Text>
         </View>
         <Switch
           value={alarmEnabled}
           onValueChange={setAlarmEnabled}
-          trackColor={{ false: Colors.border, true: Colors.primary }}
+          trackColor={{ false: colors.border, true: colors.primary }}
+          thumbColor={alarmEnabled ? '#FFFFFF' : '#F8FAFC'}
         />
       </View>
 
@@ -280,34 +275,35 @@ export default function EditHabitScreen({ route, navigation }: any) {
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteHabit} disabled={loading || deleting}>
-        {deleting ? <ActivityIndicator color={Colors.error} /> : <Text style={styles.deleteButtonText}>Delete Habit</Text>}
+        {deleting ? <ActivityIndicator color={colors.error} /> : <Text style={styles.deleteButtonText}>Delete Habit</Text>}
       </TouchableOpacity>
     </ScrollView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background, padding: 20 },
+const getStyles = (colors: any) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background, padding: 20 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 30, marginBottom: 30 },
-  backBtn: { color: Colors.primary, fontSize: 16, fontWeight: 'bold' },
-  headerTitle: { color: Colors.text, fontSize: 20, fontWeight: 'bold' },
-  label: { color: Colors.text, fontSize: 16, fontWeight: 'bold', marginBottom: 8, marginTop: 20 },
-  helperText: { color: Colors.textMuted, fontSize: 13, marginBottom: 10 },
-  input: { backgroundColor: Colors.card, color: Colors.text, padding: 15, borderRadius: 10, fontSize: 16, borderWidth: 1, borderColor: Colors.border },
+  backBtn: { color: colors.primary, fontSize: 16, fontWeight: 'bold' },
+  headerTitle: { color: colors.text, fontSize: 20, fontWeight: 'bold' },
+  label: { color: colors.text, fontSize: 16, fontWeight: 'bold', marginBottom: 8, marginTop: 20 },
+  labelPhysical: { color: colors.text, fontSize: 16, fontWeight: 'bold', marginBottom: 8 },
+  helperText: { color: colors.textMuted, fontSize: 13, marginBottom: 10 },
+  input: { backgroundColor: colors.card, color: colors.text, padding: 15, borderRadius: 10, fontSize: 16, borderWidth: 1, borderColor: colors.border },
 
   chipContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  chip: { backgroundColor: Colors.card, paddingVertical: 12, paddingHorizontal: 18, borderRadius: 12, borderWidth: 1, borderColor: Colors.border },
-  chipSelected: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  chipText: { color: Colors.textMuted, fontWeight: 'bold', fontSize: 15 },
+  chip: { backgroundColor: colors.card, paddingVertical: 12, paddingHorizontal: 18, borderRadius: 12, borderWidth: 1, borderColor: colors.border },
+  chipSelected: { backgroundColor: colors.primary, borderColor: colors.primary },
+  chipText: { color: colors.textMuted, fontWeight: 'bold', fontSize: 15 },
   chipTextSelected: { color: '#FFF' },
 
-  timePickerButton: { backgroundColor: Colors.card, padding: 15, borderRadius: 10, alignItems: 'center', borderWidth: 1, borderColor: Colors.border },
-  timeText: { color: Colors.text, fontSize: 18, fontWeight: 'bold' },
+  timePickerButton: { backgroundColor: colors.card, padding: 15, borderRadius: 10, alignItems: 'center', borderWidth: 1, borderColor: colors.border },
+  timeText: { color: colors.text, fontSize: 18, fontWeight: 'bold' },
 
-  toggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: Colors.card, padding: 15, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, marginTop: 20 },
+  toggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.card, padding: 15, borderRadius: 10, borderWidth: 1, borderColor: colors.border, marginTop: 20 },
 
-  primaryButton: { backgroundColor: Colors.success, padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 40 },
+  primaryButton: { backgroundColor: colors.success, padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 40 },
   buttonText: { color: '#FFF', fontSize: 18, fontWeight: 'bold' },
-  deleteButton: { backgroundColor: 'transparent', borderColor: Colors.error, borderWidth: 1, padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 15 },
-  deleteButtonText: { color: Colors.error, fontSize: 18, fontWeight: 'bold' }
+  deleteButton: { backgroundColor: 'transparent', borderColor: colors.error, borderWidth: 1, padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 15 },
+  deleteButtonText: { color: colors.error, fontSize: 18, fontWeight: 'bold' }
 });

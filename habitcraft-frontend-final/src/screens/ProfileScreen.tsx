@@ -1,9 +1,9 @@
 import React, { useContext, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, TextInput, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, TextInput, ActivityIndicator, Switch } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { AuthContext } from '../context/AuthContext';
 import { AlertContext } from '../context/AlertContext'; 
-import { Colors } from '../theme/Colors';
+import { ThemeContext } from '../context/ThemeContext'; // ⭐ Added ThemeContext
 import api from '../api/axiosConfig';
 import { Ionicons } from '@expo/vector-icons'; 
 import { cancelAllScheduledNotifications } from '../services/NotificationService';
@@ -11,6 +11,9 @@ import { cancelAllScheduledNotifications } from '../services/NotificationService
 export default function ProfileScreen({ navigation }: any) {
     const { logout, userData } = useContext(AuthContext); 
     const { showAlert } = useContext(AlertContext); 
+    const { isDark, colors, toggleTheme } = useContext(ThemeContext); // ⭐ Extract theme states
+
+    const styles = getStyles(colors); // ⭐ Generate dynamic styles based on active theme
     
     // Modal States
     const [logoutModalVisible, setLogoutModalVisible] = useState(false);
@@ -36,7 +39,7 @@ export default function ProfileScreen({ navigation }: any) {
     const [showNew, setShowNew] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
 
-    // ⭐ THE FIX FOR DYNAMIC XP UPDATES: useFocusEffect updates stats every time you open the tab
+    // Dynamic XP Updates
     useFocusEffect(
         useCallback(() => {
             let isActive = true;
@@ -116,12 +119,12 @@ export default function ProfileScreen({ navigation }: any) {
         }
     };
 
-    // ⭐ NEW ACCOUNT DELETION LOGIC
+    // ACCOUNT DELETION LOGIC
     const handleDeleteAccount = async () => {
         setIsDeleting(true);
         try {
             await cancelAllScheduledNotifications();
-            await api.delete('/auth/profile'); // Calls your new auth endpoint
+            await api.delete('/auth/profile'); 
             
             setDeleteModalVisible(false);
             showAlert("Account Deleted", "Your account and all data have been permanently removed.", "👋");
@@ -133,12 +136,11 @@ export default function ProfileScreen({ navigation }: any) {
         }
     };
 
-    // Real-time mismatch validation
     const isMismatch = confirmPassword.length > 0 && newPassword !== confirmPassword;
     const isSaveDisabled = passwordLoading || isMismatch || newPasswordError.length > 0 || !newPassword;
 
     return (
-        <View style={{ flex: 1, backgroundColor: Colors.background }}>
+        <View style={{ flex: 1, backgroundColor: colors.background }}>
             <ScrollView style={styles.container} contentContainerStyle={styles.content}>
                 <Text style={styles.header}>Profile</Text>
 
@@ -168,12 +170,30 @@ export default function ProfileScreen({ navigation }: any) {
                 <View style={styles.divider} />
                 
                 <Text style={styles.sectionTitle}>Account</Text>
+
+                {/* ⭐ NEW DARK MODE TOGGLE */}
+                <View style={styles.menuButton}>
+                    <View style={[styles.menuIconBox, { backgroundColor: colors.primary + '15' }]}>
+                        <Ionicons name={isDark ? "moon" : "sunny"} size={20} color={colors.primary} />
+                    </View>
+                    <View style={styles.menuTextContainer}>
+                        <Text style={styles.menuTitle}>Dark Mode</Text>
+                        <Text style={styles.menuSub}>{isDark ? "Dark theme active" : "Light theme active"}</Text>
+                    </View>
+                    <Switch
+                        value={isDark}
+                        onValueChange={toggleTheme}
+                        trackColor={{ false: '#CBD5E1', true: colors.primary }}
+                        thumbColor={isDark ? '#FFFFFF' : '#F8FAFC'}
+                    />
+                </View>
+
                 <TouchableOpacity style={styles.menuButton} onPress={() => navigation.navigate('Schedule')}>
-                    <View style={[styles.menuIconBox, { backgroundColor: 'rgba(108, 99, 255, 0.1)' }]}>
+                    <View style={[styles.menuIconBox, { backgroundColor: colors.primary + '15' }]}>
                         <Text style={styles.menuIcon}>⚙️</Text>
                     </View>
                     <View style={styles.menuTextContainer}>
-                        <Text style={[styles.menuTitle, { color: Colors.text }]}>Daily Schedule</Text>
+                        <Text style={styles.menuTitle}>Daily Schedule</Text>
                         <Text style={styles.menuSub}>Update your wake, sleep & busy times</Text>
                     </View>
                 </TouchableOpacity>
@@ -184,34 +204,32 @@ export default function ProfileScreen({ navigation }: any) {
                         <Text style={styles.menuIcon}>🔒</Text>
                     </View>
                     <View style={styles.menuTextContainer}>
-                        <Text style={[styles.menuTitle, { color: Colors.text }]}>Change Password</Text>
+                        <Text style={styles.menuTitle}>Change Password</Text>
                         <Text style={styles.menuSub}>Update your account security</Text>
                     </View>
                 </TouchableOpacity>
 
                 <Text style={[styles.sectionTitle, { marginTop: 10 }]}>Danger Zone</Text>
                 
-                {/* Logout Button */}
                 <TouchableOpacity style={styles.menuButton} onPress={() => setLogoutModalVisible(true)}>
-                    <View style={[styles.menuIconBox, { backgroundColor: 'rgba(255, 107, 107, 0.1)' }]}>
+                    <View style={[styles.menuIconBox, { backgroundColor: colors.error + '15' }]}>
                         <Text style={styles.menuIcon}>🚪</Text>
                     </View>
                     <View style={styles.menuTextContainer}>
-                        <Text style={[styles.menuTitle, { color: Colors.error }]}>Log Out</Text>
+                        <Text style={[styles.menuTitle, { color: colors.error }]}>Log Out</Text>
                         <Text style={styles.menuSub}>Securely sign out of your account</Text>
                     </View>
                 </TouchableOpacity>
 
-                {/* New Delete Account Button */}
                 <TouchableOpacity style={styles.menuButton} onPress={() => {
                     setIsDeleteChecked(false);
                     setDeleteModalVisible(true);
                 }}>
-                    <View style={[styles.menuIconBox, { backgroundColor: 'rgba(255, 107, 107, 0.1)' }]}>
+                    <View style={[styles.menuIconBox, { backgroundColor: colors.error + '15' }]}>
                         <Text style={styles.menuIcon}>⚠️</Text>
                     </View>
                     <View style={styles.menuTextContainer}>
-                        <Text style={[styles.menuTitle, { color: Colors.error }]}>Delete Account</Text>
+                        <Text style={[styles.menuTitle, { color: colors.error }]}>Delete Account</Text>
                         <Text style={styles.menuSub}>Permanently remove all data</Text>
                     </View>
                 </TouchableOpacity>
@@ -228,42 +246,42 @@ export default function ProfileScreen({ navigation }: any) {
                                 <TextInput 
                                     style={styles.passwordInput} 
                                     placeholder="Current Password" 
-                                    placeholderTextColor={Colors.textMuted}
+                                    placeholderTextColor={colors.textMuted}
                                     secureTextEntry={!showCurrent}
                                     value={currentPassword}
                                     onChangeText={setCurrentPassword}
                                 />
                                 <TouchableOpacity onPress={() => setShowCurrent(!showCurrent)} style={styles.eyeIcon}>
-                                    <Ionicons name={showCurrent ? "eye-outline" : "eye-off-outline"} size={22} color={Colors.textMuted} />
+                                    <Ionicons name={showCurrent ? "eye-outline" : "eye-off-outline"} size={22} color={colors.textMuted} />
                                 </TouchableOpacity>
                             </View>
 
-                            <View style={[styles.passwordWrapper, newPasswordError ? { borderColor: Colors.error } : null, { marginBottom: newPasswordError ? 5 : 12 }]}>
+                            <View style={[styles.passwordWrapper, newPasswordError ? { borderColor: colors.error } : null, { marginBottom: newPasswordError ? 5 : 12 }]}>
                                 <TextInput 
                                     style={styles.passwordInput} 
                                     placeholder="New Password" 
-                                    placeholderTextColor={Colors.textMuted}
+                                    placeholderTextColor={colors.textMuted}
                                     secureTextEntry={!showNew}
                                     value={newPassword}
                                     onChangeText={validateNewPassword}
                                 />
                                 <TouchableOpacity onPress={() => setShowNew(!showNew)} style={styles.eyeIcon}>
-                                    <Ionicons name={showNew ? "eye-outline" : "eye-off-outline"} size={22} color={newPasswordError ? Colors.error : Colors.textMuted} />
+                                    <Ionicons name={showNew ? "eye-outline" : "eye-off-outline"} size={22} color={newPasswordError ? colors.error : colors.textMuted} />
                                 </TouchableOpacity>
                             </View>
                             {newPasswordError ? <Text style={styles.errorText}>{newPasswordError}</Text> : null}
 
-                            <View style={[styles.passwordWrapper, isMismatch && { borderColor: Colors.error }]}>
+                            <View style={[styles.passwordWrapper, isMismatch && { borderColor: colors.error }]}>
                                 <TextInput 
                                     style={styles.passwordInput} 
                                     placeholder="Confirm New Password" 
-                                    placeholderTextColor={Colors.textMuted}
+                                    placeholderTextColor={colors.textMuted}
                                     secureTextEntry={!showConfirm}
                                     value={confirmPassword}
                                     onChangeText={setConfirmPassword}
                                 />
                                 <TouchableOpacity onPress={() => setShowConfirm(!showConfirm)} style={styles.eyeIcon}>
-                                    <Ionicons name={showConfirm ? "eye-outline" : "eye-off-outline"} size={22} color={isMismatch ? Colors.error : Colors.textMuted} />
+                                    <Ionicons name={showConfirm ? "eye-outline" : "eye-off-outline"} size={22} color={isMismatch ? colors.error : colors.textMuted} />
                                 </TouchableOpacity>
                             </View>
                             {isMismatch && <Text style={styles.errorText}>Passwords do not match.</Text>}
@@ -314,7 +332,7 @@ export default function ProfileScreen({ navigation }: any) {
                 </View>
             </Modal>
 
-            {/* --- NEW DELETE ACCOUNT MODAL --- */}
+            {/* --- DELETE ACCOUNT MODAL --- */}
             <Modal transparent visible={deleteModalVisible} animationType="fade">
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
@@ -358,54 +376,54 @@ export default function ProfileScreen({ navigation }: any) {
     );
 }
 
-const styles = StyleSheet.create({
+// ⭐ Changed to a function that dynamically returns styles based on the active theme colors
+const getStyles = (colors: any) => StyleSheet.create({
     container: { flex: 1 },
     content: { padding: 25, paddingTop: 60, paddingBottom: 40 },
-    header: { fontSize: 32, fontWeight: 'bold', color: Colors.text, marginBottom: 30 },
-    userCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.card, padding: 20, borderRadius: 16, marginBottom: 30, borderWidth: 1, borderColor: Colors.border },
-    avatarCircle: { width: 65, height: 65, borderRadius: 32.5, backgroundColor: Colors.primary, justifyContent: 'center', alignItems: 'center', marginRight: 15 },
+    header: { fontSize: 32, fontWeight: 'bold', color: colors.text, marginBottom: 30 },
+    userCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, padding: 20, borderRadius: 16, marginBottom: 30, borderWidth: 1, borderColor: colors.border },
+    avatarCircle: { width: 65, height: 65, borderRadius: 32.5, backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center', marginRight: 15 },
     avatarText: { color: '#FFF', fontSize: 24, fontWeight: 'bold' },
     userInfo: { flex: 1 },
-    userName: { color: Colors.text, fontSize: 20, fontWeight: 'bold', marginBottom: 4 },
-    userEmail: { color: Colors.textMuted, fontSize: 14, marginBottom: 10 },
+    userName: { color: colors.text, fontSize: 20, fontWeight: 'bold', marginBottom: 4 },
+    userEmail: { color: colors.textMuted, fontSize: 14, marginBottom: 10 },
     
     statsRow: { flexDirection: 'row', gap: 10 },
     statBadge: { backgroundColor: 'rgba(108, 99, 255, 0.15)', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 8 },
-    statBadgeText: { color: Colors.primary, fontSize: 12, fontWeight: 'bold' },
+    statBadgeText: { color: colors.primary, fontSize: 12, fontWeight: 'bold' },
 
-    divider: { height: 1, backgroundColor: Colors.border, marginBottom: 25 },
-    sectionTitle: { fontSize: 18, fontWeight: '600', color: Colors.textMuted, marginBottom: 15, marginTop: 10, textTransform: 'uppercase', letterSpacing: 1 },
-    menuButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.card, padding: 15, borderRadius: 14, marginBottom: 15, borderWidth: 1, borderColor: Colors.border },
+    divider: { height: 1, backgroundColor: colors.border, marginBottom: 25 },
+    sectionTitle: { fontSize: 18, fontWeight: '600', color: colors.textMuted, marginBottom: 15, marginTop: 10, textTransform: 'uppercase', letterSpacing: 1 },
+    menuButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, padding: 15, borderRadius: 14, marginBottom: 15, borderWidth: 1, borderColor: colors.border },
     menuIconBox: { width: 45, height: 45, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginRight: 15 },
     menuIcon: { fontSize: 20 },
     menuTextContainer: { flex: 1 },
-    menuTitle: { fontSize: 16, fontWeight: 'bold', marginBottom: 3 },
-    menuSub: { color: Colors.textMuted, fontSize: 13 },
+    menuTitle: { fontSize: 16, fontWeight: 'bold', marginBottom: 3, color: colors.text },
+    menuSub: { color: colors.textMuted, fontSize: 13 },
     
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-    modalContent: { backgroundColor: Colors.card, width: '100%', borderRadius: 20, padding: 25, alignItems: 'center', borderWidth: 1, borderColor: Colors.border },
+    modalContent: { backgroundColor: colors.card, width: '100%', borderRadius: 20, padding: 25, alignItems: 'center', borderWidth: 1, borderColor: colors.border },
     modalIcon: { fontSize: 40, marginBottom: 15 },
-    modalTitle: { color: Colors.text, fontSize: 22, fontWeight: 'bold', marginBottom: 20 },
-    modalTitleDelete: { color: Colors.error, fontSize: 22, fontWeight: 'bold', marginBottom: 15 }, // New style for delete modal
-    modalMessage: { color: Colors.textMuted, fontSize: 15, textAlign: 'center', marginBottom: 25, lineHeight: 22 },
+    modalTitle: { color: colors.text, fontSize: 22, fontWeight: 'bold', marginBottom: 20 },
+    modalTitleDelete: { color: colors.error, fontSize: 22, fontWeight: 'bold', marginBottom: 15 }, 
+    modalMessage: { color: colors.textMuted, fontSize: 15, textAlign: 'center', marginBottom: 25, lineHeight: 22 },
     
     inputContainer: { width: '100%', marginBottom: 20 },
-    passwordWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.background, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, marginBottom: 12 },
-    passwordInput: { flex: 1, color: Colors.text, padding: 15, fontSize: 16 },
+    passwordWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.background, borderRadius: 12, borderWidth: 1, borderColor: colors.border, marginBottom: 12 },
+    passwordInput: { flex: 1, color: colors.text, padding: 15, fontSize: 16 },
     eyeIcon: { paddingHorizontal: 15, justifyContent: 'center', alignItems: 'center' },
-    errorText: { color: Colors.error, fontSize: 13, marginTop: 2, marginBottom: 12, marginLeft: 5 },
+    errorText: { color: colors.error, fontSize: 13, marginTop: 2, marginBottom: 12, marginLeft: 5 },
 
-    // Checkbox Styles for Delete Modal
     checkboxContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 25, width: '100%' },
-    checkbox: { width: 22, height: 22, borderWidth: 2, borderColor: Colors.border, borderRadius: 5, marginRight: 12, justifyContent: 'center', alignItems: 'center' },
-    checkboxChecked: { backgroundColor: Colors.error, borderColor: Colors.error },
+    checkbox: { width: 22, height: 22, borderWidth: 2, borderColor: colors.border, borderRadius: 5, marginRight: 12, justifyContent: 'center', alignItems: 'center' },
+    checkboxChecked: { backgroundColor: colors.error, borderColor: colors.error },
     checkmark: { color: '#FFF', fontSize: 14, fontWeight: 'bold' },
-    checkboxLabel: { color: Colors.text, fontSize: 14, flexShrink: 1 },
+    checkboxLabel: { color: colors.text, fontSize: 14, flexShrink: 1 },
 
     modalActions: { flexDirection: 'row', width: '100%', gap: 15 },
-    modalCancelBtn: { flex: 1, padding: 15, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center' },
-    modalCancelText: { color: Colors.text, fontSize: 16, fontWeight: 'bold' },
-    modalDangerBtn: { flex: 1, padding: 15, borderRadius: 12, backgroundColor: Colors.error, alignItems: 'center' },
-    modalPrimaryBtn: { flex: 1, padding: 15, borderRadius: 12, backgroundColor: Colors.primary, alignItems: 'center' },
+    modalCancelBtn: { flex: 1, padding: 15, borderRadius: 12, backgroundColor: 'rgba(128,128,128,0.2)', alignItems: 'center' },
+    modalCancelText: { color: colors.text, fontSize: 16, fontWeight: 'bold' },
+    modalDangerBtn: { flex: 1, padding: 15, borderRadius: 12, backgroundColor: colors.error, alignItems: 'center' },
+    modalPrimaryBtn: { flex: 1, padding: 15, borderRadius: 12, backgroundColor: colors.primary, alignItems: 'center' },
     modalConfirmText: { color: '#FFF', fontSize: 16, fontWeight: 'bold' }
 });
