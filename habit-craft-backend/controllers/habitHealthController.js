@@ -41,6 +41,7 @@ const getHabitHealthScores = async (req, res) => {
       return {
         _id: habit._id,
         title: habit.title,
+        icon: habit.icon, // ⭐ THE FIX: Attach the icon to the outgoing payload!
         healthScore: Math.min(healthScore, 100) // Hard cap at 100% just in case
       };
     }));
@@ -58,7 +59,6 @@ const getHabitHealthScores = async (req, res) => {
 };
 
 module.exports = { getHabitHealthScores };
-
 
 
 
