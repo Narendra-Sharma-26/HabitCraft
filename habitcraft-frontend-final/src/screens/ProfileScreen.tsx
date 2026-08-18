@@ -3,18 +3,23 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, TextInput,
 import { useFocusEffect } from '@react-navigation/native';
 import { AuthContext } from '../context/AuthContext';
 import { AlertContext } from '../context/AlertContext'; 
-import { ThemeContext } from '../context/ThemeContext'; // ⭐ Added ThemeContext
+import { ThemeContext } from '../context/ThemeContext'; 
 import api from '../api/axiosConfig';
 import { Ionicons } from '@expo/vector-icons'; 
 import { cancelAllScheduledNotifications } from '../services/NotificationService';
+import { useFonts, Pacifico_400Regular } from '@expo-google-fonts/pacifico';
 
 export default function ProfileScreen({ navigation }: any) {
     const { logout, userData } = useContext(AuthContext); 
     const { showAlert } = useContext(AlertContext); 
-    const { isDark, colors, toggleTheme } = useContext(ThemeContext); // ⭐ Extract theme states
+    const { isDark, colors, toggleTheme } = useContext(ThemeContext); 
 
-    const styles = getStyles(colors); // ⭐ Generate dynamic styles based on active theme
+    const styles = getStyles(colors); 
     
+    let [fontsLoaded] = useFonts({
+        Pacifico_400Regular,
+    });
+
     // Modal States
     const [logoutModalVisible, setLogoutModalVisible] = useState(false);
     const [passwordModalVisible, setPasswordModalVisible] = useState(false);
@@ -119,7 +124,6 @@ export default function ProfileScreen({ navigation }: any) {
         }
     };
 
-    // ACCOUNT DELETION LOGIC
     const handleDeleteAccount = async () => {
         setIsDeleting(true);
         try {
@@ -138,6 +142,8 @@ export default function ProfileScreen({ navigation }: any) {
 
     const isMismatch = confirmPassword.length > 0 && newPassword !== confirmPassword;
     const isSaveDisabled = passwordLoading || isMismatch || newPasswordError.length > 0 || !newPassword;
+
+    if (!fontsLoaded) return <View style={[styles.container, { justifyContent: 'center', backgroundColor: colors.background }]}><ActivityIndicator size="large" color={colors.primary} /></View>;
 
     return (
         <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -171,7 +177,6 @@ export default function ProfileScreen({ navigation }: any) {
                 
                 <Text style={styles.sectionTitle}>Account</Text>
 
-                {/* ⭐ NEW DARK MODE TOGGLE */}
                 <View style={styles.menuButton}>
                     <View style={[styles.menuIconBox, { backgroundColor: colors.primary + '15' }]}>
                         <Ionicons name={isDark ? "moon" : "sunny"} size={20} color={colors.primary} />
@@ -376,11 +381,10 @@ export default function ProfileScreen({ navigation }: any) {
     );
 }
 
-// ⭐ Changed to a function that dynamically returns styles based on the active theme colors
 const getStyles = (colors: any) => StyleSheet.create({
     container: { flex: 1 },
     content: { padding: 25, paddingTop: 60, paddingBottom: 40 },
-    header: { fontSize: 32, fontWeight: 'bold', color: colors.text, marginBottom: 30 },
+    header: { fontSize: 38, fontFamily: 'Pacifico_400Regular', color: colors.text, marginBottom: 30 },
     userCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, padding: 20, borderRadius: 16, marginBottom: 30, borderWidth: 1, borderColor: colors.border },
     avatarCircle: { width: 65, height: 65, borderRadius: 32.5, backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center', marginRight: 15 },
     avatarText: { color: '#FFF', fontSize: 24, fontWeight: 'bold' },

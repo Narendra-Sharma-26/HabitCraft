@@ -7,6 +7,7 @@ import { ThemeContext } from '../context/ThemeContext';
 import api from '../api/axiosConfig';
 import LottieView from 'lottie-react-native';
 import { requestNotificationPermission, syncHabitNotifications } from '../services/NotificationService'; 
+import { useFonts, Pacifico_400Regular } from '@expo-google-fonts/pacifico';
 
 const HabitListItem = ({ item, navigation, onToggle }: any) => {
   const [isCompleted, setIsCompleted] = useState(item.completedToday);
@@ -52,6 +53,10 @@ export default function DashboardScreen({ navigation }: any) {
   const { showAlert } = useContext(AlertContext); 
   const { colors } = useContext(ThemeContext);
   const styles = getStyles(colors);
+
+  let [fontsLoaded] = useFonts({
+    Pacifico_400Regular,
+  });
 
   const hasSynced = useRef(false);
   
@@ -210,7 +215,7 @@ export default function DashboardScreen({ navigation }: any) {
     return <Text style={styles.insightMessage}>{text}</Text>;
   };
 
-  if (loading) {
+  if (loading || !fontsLoaded) {
     return (
       <View style={[styles.container, { justifyContent: 'center' }]}>
         <ActivityIndicator size="large" color={colors.primary} />
@@ -314,7 +319,7 @@ const getStyles = (colors: any) => StyleSheet.create({
   headerContainer: { marginBottom: 20 },
   centerTitles: { alignItems: 'center', marginBottom: 15 },
   leftStats: { alignItems: 'flex-start' },
-  title: { fontSize: 28, fontWeight: 'bold', color: colors.text },
+  title: { fontSize: 36, fontFamily: 'Pacifico_400Regular', color: colors.text, marginBottom: -4 },
   greetingText: { color: colors.textMuted, fontSize: 16, marginTop: 4 },
   subtitle: { fontSize: 16, color: colors.accent, fontWeight: 'bold' },
   consistencyText: { fontSize: 15, color: colors.secondary, fontWeight: 'bold', marginTop: 4 },

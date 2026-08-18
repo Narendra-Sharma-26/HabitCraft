@@ -4,6 +4,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import api from '../api/axiosConfig';
 import { AlertContext } from '../context/AlertContext';
 import { ThemeContext } from '../context/ThemeContext';
+import { useFonts, Pacifico_400Regular } from '@expo-google-fonts/pacifico';
 
 export default function AnalyticsScreen() {
   const [healthData, setHealthData] = useState<any[]>([]);
@@ -13,6 +14,10 @@ export default function AnalyticsScreen() {
   
   const { colors, isDark } = useContext(ThemeContext);
   const styles = getStyles(colors, isDark);
+
+  let [fontsLoaded] = useFonts({
+    Pacifico_400Regular,
+  });
 
   const fetchAnalyticsData = async () => {
     try {
@@ -52,7 +57,7 @@ export default function AnalyticsScreen() {
     return 'rgba(76, 175, 80, 1)'; 
   };
 
-  if (loading) return <View style={[styles.container, { justifyContent: 'center' }]}><ActivityIndicator size="large" color={colors.primary} /></View>;
+  if (loading || !fontsLoaded) return <View style={[styles.container, { justifyContent: 'center' }]}><ActivityIndicator size="large" color={colors.primary} /></View>;
 
   return (
     <ScrollView 
@@ -106,7 +111,7 @@ export default function AnalyticsScreen() {
           return (
             <View key={habit._id || index} style={styles.card}>
               <View style={styles.cardHeader}>
-                <Text style={styles.habitTitle}>{habit.title || 'Unknown Habit'}</Text>
+                <Text style={styles.habitTitle}>{habit.icon || '🎯'} {habit.title || 'Unknown Habit'}</Text>
                 <Text style={[styles.scoreText, { color: getScoreColor(score) }]}>{score}%</Text>
               </View>
 
@@ -128,7 +133,7 @@ const getStyles = (colors: any, isDark: boolean) => StyleSheet.create({
   scrollContent: { padding: 20, paddingBottom: 50 },
   
   header: { marginTop: 40, marginBottom: 30 },
-  title: { fontSize: 32, fontWeight: 'bold', color: colors.text },
+  title: { fontSize: 38, fontFamily: 'Pacifico_400Regular', color: colors.text },
   subtitle: { fontSize: 16, color: colors.textMuted, marginTop: 5 },
   
   sectionContainer: { backgroundColor: colors.card, padding: 20, borderRadius: 16, marginBottom: 25, borderWidth: 1, borderColor: colors.border },

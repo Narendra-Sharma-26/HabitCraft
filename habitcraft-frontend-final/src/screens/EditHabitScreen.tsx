@@ -5,6 +5,7 @@ import api from '../api/axiosConfig';
 import { AlertContext } from '../context/AlertContext';
 import { ThemeContext } from '../context/ThemeContext';
 import { scheduleTaskReminders, setNativeRepeatingAlarm, cancelHabitReminders } from '../services/NotificationService';
+import EmojiPicker from 'rn-emoji-keyboard'; // ⭐ Imported the library
 
 const dateToHHMM = (date: Date) => {
   const h = date.getHours().toString().padStart(2, '0');
@@ -33,8 +34,8 @@ export default function EditHabitScreen({ route, navigation }: any) {
   const styles = getStyles(colors);
 
   const [title, setTitle] = useState(habit.title);
-  // ⭐ NEW: Add icon state, defaulting to existing or a target emoji
   const [icon, setIcon] = useState(habit.icon || '🎯');
+  const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false); // ⭐ State for the modal
   
   const [duration, setDuration] = useState(habit.duration ? habit.duration.toString() : '30');
   const [difficulty, setDifficulty] = useState(habit.difficulty || 'Medium');
@@ -155,7 +156,7 @@ export default function EditHabitScreen({ route, navigation }: any) {
 
       await api.put(`/habits/${habit._id}`, {
         title,
-        icon, // ⭐ Include icon in the update payload
+        icon, 
         difficulty,
         duration: parseInt(duration),
         scheduledTime
@@ -227,79 +228,105 @@ export default function EditHabitScreen({ route, navigation }: any) {
   );
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backBtn}> Cancel</Text>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <Text style={styles.backBtn}> Cancel</Text>
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Edit Habit</Text>
+          <View style={{ width: 60 }} />
+        </View>
+
+        <Text style={styles.label}>Habit Title</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          
+          {/* ⭐ FIX: Changed to a TouchableOpacity that opens the modal */}
+          <TouchableOpacity 
+            style={styles.iconInput}
+            onPress={() => setIsEmojiPickerOpen(true)}
+            activeOpacity={0.7}
+          >
+            <Text style={{ fontSize: 24 }}>{icon}</Text>
+          </TouchableOpacity>
+          
+          <View style={{ flex: 1 }}>
+            <TextInput style={styles.input} value={title} onChangeText={setTitle} />
+          </View>
+        </View>
+
+        <Text style={styles.label}>Difficulty</Text>
+        {renderChips(difficulties, difficulty, handleDifficultySelect)}
+
+        <Text style={[styles.label, { marginTop: 25 }]}>Scheduled Time</Text>
+        <Text style={styles.helperText}>Override the AI's suggested time here.</Text>
+        <TouchableOpacity style={styles.timePickerButton} onPress={() => setShowPicker(true)}>
+          <Text style={styles.timeText}>{scheduledTime ? `⏰ ${scheduledTime}` : "Not Set"}</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Edit Habit</Text>
-        <View style={{ width: 60 }} />
-      </View>
 
-      <Text style={styles.label}>Habit Title</Text>
-      {/* ⭐ NEW: Icon & Title Row */}
-      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-        <TextInput 
-          style={styles.iconInput}
-          value={icon}
-          onChangeText={setIcon}
-          maxLength={2}
-          placeholder="🎯"
-          placeholderTextColor={colors.textMuted}
-        />
-        <View style={{ flex: 1 }}>
-          <TextInput style={styles.input} value={title} onChangeText={setTitle} />
+        {showPicker && (
+          <DateTimePicker
+            value={scheduledTime ? hhmmToDate(scheduledTime) : new Date()}
+            mode="time"
+            is24Hour={true}
+            display="default"
+            onChange={handleTimeChange}
+          />
+        )}
+
+        <Text style={styles.label}>Duration (minutes)</Text>
+        <TextInput style={styles.input} value={duration} onChangeText={setDuration} keyboardType="numeric" />
+
+        <View style={styles.toggleRow}>
+          <View style={{ flex: 1, paddingRight: 10 }}>
+            <Text style={styles.labelPhysical}>Physical Alarm 🔔</Text>
+            <Text style={styles.helperText}>Rings loudly in your native clock app</Text>
+          </View>
+          <Switch
+            value={alarmEnabled}
+            onValueChange={setAlarmEnabled}
+            trackColor={{ false: colors.border, true: colors.primary }}
+            thumbColor={alarmEnabled ? '#FFFFFF' : '#F8FAFC'}
+          />
         </View>
-      </View>
 
-      <Text style={styles.label}>Difficulty</Text>
-      {renderChips(difficulties, difficulty, handleDifficultySelect)}
+        <TouchableOpacity style={styles.primaryButton} onPress={handleUpdateHabit} disabled={loading || deleting}>
+          {loading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.buttonText}>Save Changes</Text>}
+        </TouchableOpacity>
 
-      <Text style={[styles.label, { marginTop: 25 }]}>Scheduled Time</Text>
-      <Text style={styles.helperText}>Override the AI's suggested time here.</Text>
-      <TouchableOpacity style={styles.timePickerButton} onPress={() => setShowPicker(true)}>
-        <Text style={styles.timeText}>{scheduledTime ? `⏰ ${scheduledTime}` : "Not Set"}</Text>
-      </TouchableOpacity>
+        <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteHabit} disabled={loading || deleting}>
+          {deleting ? <ActivityIndicator color={colors.error} /> : <Text style={styles.deleteButtonText}>Delete Habit</Text>}
+        </TouchableOpacity>
+      </ScrollView>
 
-      {showPicker && (
-        <DateTimePicker
-          value={scheduledTime ? hhmmToDate(scheduledTime) : new Date()}
-          mode="time"
-          is24Hour={true}
-          display="default"
-          onChange={handleTimeChange}
-        />
-      )}
-
-      <Text style={styles.label}>Duration (minutes)</Text>
-      <TextInput style={styles.input} value={duration} onChangeText={setDuration} keyboardType="numeric" />
-
-      <View style={styles.toggleRow}>
-        <View style={{ flex: 1, paddingRight: 10 }}>
-          <Text style={styles.labelPhysical}>Physical Alarm 🔔</Text>
-          <Text style={styles.helperText}>Rings loudly in your native clock app</Text>
-        </View>
-        <Switch
-          value={alarmEnabled}
-          onValueChange={setAlarmEnabled}
-          trackColor={{ false: colors.border, true: colors.primary }}
-          thumbColor={alarmEnabled ? '#FFFFFF' : '#F8FAFC'}
-        />
-      </View>
-
-      <TouchableOpacity style={styles.primaryButton} onPress={handleUpdateHabit} disabled={loading || deleting}>
-        {loading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.buttonText}>Save Changes</Text>}
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteHabit} disabled={loading || deleting}>
-        {deleting ? <ActivityIndicator color={colors.error} /> : <Text style={styles.deleteButtonText}>Delete Habit</Text>}
-      </TouchableOpacity>
-    </ScrollView>
+      {/* ⭐ NEW: The actual Emoji Picker modal */}
+      <EmojiPicker
+        open={isEmojiPickerOpen}
+        onClose={() => setIsEmojiPickerOpen(false)}
+        onEmojiSelected={(emojiObject) => {
+          setIcon(emojiObject.emoji);
+          setIsEmojiPickerOpen(false);
+        }}
+        enableSearchBar={true}
+        theme={{
+          backdrop: 'rgba(0,0,0,0.6)',
+          knob: colors.primary,
+          container: colors.card,
+          header: colors.text,
+          skinTonesContainer: colors.card,
+          search: {
+            background: colors.background,
+            text: colors.text,
+            placeholder: colors.textMuted,
+          },
+        }}
+      />
+    </View>
   );
 }
 
 const getStyles = (colors: any) => StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background, padding: 20 },
+  container: { flex: 1, padding: 20 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 30, marginBottom: 30 },
   backBtn: { color: colors.primary, fontSize: 16, fontWeight: 'bold' },
   headerTitle: { color: colors.text, fontSize: 20, fontWeight: 'bold' },
@@ -308,8 +335,8 @@ const getStyles = (colors: any) => StyleSheet.create({
   helperText: { color: colors.textMuted, fontSize: 13, marginBottom: 10 },
   input: { backgroundColor: colors.card, color: colors.text, padding: 15, borderRadius: 10, fontSize: 16, borderWidth: 1, borderColor: colors.border },
   
-  // ⭐ NEW: Style for the manual emoji input
-  iconInput: { backgroundColor: colors.card, color: colors.text, padding: 12, borderRadius: 10, borderWidth: 1, borderColor: colors.border, marginRight: 10, height: 55, width: 55, textAlign: 'center', fontSize: 24 },
+  // ⭐ FIX: Updated to align perfectly as a button
+  iconInput: { backgroundColor: colors.card, justifyContent: 'center', alignItems: 'center', borderRadius: 10, borderWidth: 1, borderColor: colors.border, marginRight: 10, height: 55, width: 55 },
 
   chipContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   chip: { backgroundColor: colors.card, paddingVertical: 12, paddingHorizontal: 18, borderRadius: 12, borderWidth: 1, borderColor: colors.border },

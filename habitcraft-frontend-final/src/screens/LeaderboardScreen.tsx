@@ -4,6 +4,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import api from '../api/axiosConfig';
 import { AlertContext } from '../context/AlertContext';
 import { ThemeContext } from '../context/ThemeContext';
+import { useFonts, Pacifico_400Regular } from '@expo-google-fonts/pacifico';
 
 export default function LeaderboardScreen() {
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
@@ -13,6 +14,10 @@ export default function LeaderboardScreen() {
   
   const { colors } = useContext(ThemeContext);
   const styles = getStyles(colors);
+
+  let [fontsLoaded] = useFonts({
+    Pacifico_400Regular,
+  });
 
   const fetchLeaderboard = async () => {
     try {
@@ -72,7 +77,7 @@ export default function LeaderboardScreen() {
     );
   };
 
-  if (loading) return <View style={[styles.container, { justifyContent: 'center' }]}><ActivityIndicator size="large" color={colors.primary} /></View>;
+  if (loading || !fontsLoaded) return <View style={[styles.container, { justifyContent: 'center' }]}><ActivityIndicator size="large" color={colors.primary} /></View>;
 
   return (
     <View style={styles.container}>
@@ -115,7 +120,7 @@ export default function LeaderboardScreen() {
 const getStyles = (colors: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background, padding: 20, paddingTop: 50 },
   header: { marginBottom: 25 },
-  title: { fontSize: 32, fontWeight: 'bold', color: colors.text },
+  title: { fontSize: 38, fontFamily: 'Pacifico_400Regular', color: colors.text },
   subtitle: { fontSize: 15, color: colors.textMuted, marginTop: 5 },
   
   card: { flexDirection: 'row', alignItems: 'center', padding: 15, borderRadius: 16, marginBottom: 12 },

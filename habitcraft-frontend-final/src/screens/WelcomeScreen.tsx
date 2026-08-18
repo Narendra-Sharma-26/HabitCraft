@@ -2,32 +2,41 @@ import React, { useEffect, useRef, useContext } from 'react';
 import { View, Text, StyleSheet, Image, Animated } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient'; 
 import { ThemeContext } from '../context/ThemeContext';
+import { useFonts, Pacifico_400Regular } from '@expo-google-fonts/pacifico';
 
 export default function WelcomeScreen({ navigation }: any) {
   const { colors, isDark } = useContext(ThemeContext);
   const styles = getStyles(colors);
 
+  let [fontsLoaded] = useFonts({
+    Pacifico_400Regular,
+  });
+
   const opacity = useRef(new Animated.Value(0)).current;
   const scale = useRef(new Animated.Value(0.8)).current;
 
   useEffect(() => {
-    Animated.parallel([
-      Animated.timing(opacity, {
-        toValue: 1,
-        duration: 1000,
-        useNativeDriver: true, 
-      }),
-      Animated.timing(scale, {
-        toValue: 1,
-        duration: 1000,
-        useNativeDriver: true,
-      })
-    ]).start(() => {
-      setTimeout(() => {
-        navigation.replace('Auth');
-      }, 1000);
-    });
-  }, []);
+    if (fontsLoaded) {
+      Animated.parallel([
+        Animated.timing(opacity, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true, 
+        }),
+        Animated.timing(scale, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        })
+      ]).start(() => {
+        setTimeout(() => {
+          navigation.replace('Auth');
+        }, 1000);
+      });
+    }
+  }, [fontsLoaded]);
+
+  if (!fontsLoaded) return null;
 
   return (
     <LinearGradient
@@ -65,10 +74,9 @@ const getStyles = (colors: any) => StyleSheet.create({
     backgroundColor: '#FFFFFF', 
   },
   appName: {
-    fontSize: 36,
-    fontWeight: '800',
+    fontSize: 48,
+    fontFamily: 'Pacifico_400Regular',
     color: colors.text, 
-    letterSpacing: 1.2,
     marginTop: 20,
   },
 });

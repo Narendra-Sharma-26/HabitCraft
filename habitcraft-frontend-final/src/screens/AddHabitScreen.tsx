@@ -4,6 +4,7 @@ import api from '../api/axiosConfig';
 import { AlertContext } from '../context/AlertContext'; 
 import { ThemeContext } from '../context/ThemeContext';
 import { scheduleTaskReminders } from '../services/NotificationService'; 
+import EmojiPicker from 'rn-emoji-keyboard'; // ⭐ Imported the library
 
 const HABIT_SUGGESTIONS = [
   "Drink 2 Liters of Water", "Hit 10,000 Steps", "30 Minutes of Exercise", "Sleep for 8 Hours",
@@ -23,8 +24,8 @@ export default function AddHabitScreen({ navigation }: any) {
   const styles = getStyles(colors);
 
   const [title, setTitle] = useState('');
-  // ⭐ NEW: Add icon state
   const [icon, setIcon] = useState('🎯');
+  const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false); // ⭐ State for the modal
 
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [difficulty, setDifficulty] = useState('Medium');
@@ -55,7 +56,7 @@ export default function AddHabitScreen({ navigation }: any) {
     setLoading(true);
     try {
       const response = await api.post('/habits', {
-        title, icon, difficulty, preferredTime, duration: finalDuration // ⭐ Include icon in the create payload
+        title, icon, difficulty, preferredTime, duration: finalDuration 
       });
       
       const createdHabit = response.data.habit || response.data;
@@ -109,16 +110,16 @@ export default function AddHabitScreen({ navigation }: any) {
 
         <View style={styles.cardSection}>
             <Text style={styles.label}>What do you want to build?</Text>
-            {/* ⭐ NEW: Icon & Title Row */}
             <View style={{ flexDirection: 'row', alignItems: 'center', zIndex: 10, position: 'relative' }}>
-                <TextInput 
-                    style={styles.iconInput}
-                    value={icon}
-                    onChangeText={setIcon}
-                    maxLength={2}
-                    placeholder="🎯"
-                    placeholderTextColor={colors.textMuted}
-                />
+                
+                {/* ⭐ FIX: Changed to a TouchableOpacity that opens the modal */}
+                <TouchableOpacity 
+                  style={styles.iconInput}
+                  onPress={() => setIsEmojiPickerOpen(true)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={{ fontSize: 24 }}>{icon}</Text>
+                </TouchableOpacity>
                 
                 <View style={{ flex: 1 }}>
                     <TextInput 
@@ -216,6 +217,29 @@ export default function AddHabitScreen({ navigation }: any) {
             <Text style={styles.cancelButtonText}>Cancel</Text>
         </TouchableOpacity>
         </ScrollView>
+
+        {/* ⭐ NEW: The actual Emoji Picker modal */}
+        <EmojiPicker
+          open={isEmojiPickerOpen}
+          onClose={() => setIsEmojiPickerOpen(false)}
+          onEmojiSelected={(emojiObject) => {
+            setIcon(emojiObject.emoji);
+            setIsEmojiPickerOpen(false);
+          }}
+          enableSearchBar={true}
+          theme={{
+            backdrop: 'rgba(0,0,0,0.6)',
+            knob: colors.primary,
+            container: colors.card,
+            header: colors.text,
+            skinTonesContainer: colors.card,
+            search: {
+              background: colors.background,
+              text: colors.text,
+              placeholder: colors.textMuted,
+            },
+          }}
+        />
     </View>
   );
 }
@@ -231,8 +255,8 @@ const getStyles = (colors: any) => StyleSheet.create({
   
   input: { backgroundColor: colors.background, color: colors.text, padding: 15, borderRadius: 12, fontSize: 16, borderWidth: 1, borderColor: colors.border },
   
-  // ⭐ NEW: Style for the manual emoji input
-  iconInput: { backgroundColor: colors.background, color: colors.text, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: colors.border, marginRight: 10, height: 56, width: 56, textAlign: 'center', fontSize: 24 },
+  // ⭐ FIX: Updated to align perfectly as a button
+  iconInput: { backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center', borderRadius: 12, borderWidth: 1, borderColor: colors.border, marginRight: 10, height: 56, width: 56 },
 
   inputWithDropdownOpen: {
     borderBottomLeftRadius: 0,
