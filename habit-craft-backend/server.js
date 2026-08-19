@@ -33,6 +33,7 @@ app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/ai", aiRoutes);
+app.use('/api/groups', require('./routes/groupRoutes'));
 
 // Test route
 app.get("/", (req, res) => {
