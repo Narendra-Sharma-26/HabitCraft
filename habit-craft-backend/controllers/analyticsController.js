@@ -3,16 +3,22 @@ const Habit = require("../models/Habit");
 const HabitLog = require("../models/HabitLog");
 const { getTodayIST, getPastISTDate } = require("../utils/dateHelper");
 
-// @desc    Get streak heatmap (last 30 days)
-// @route   GET /api/analytics/heatmap
+// @desc    Get streak heatmap (dynamic timeframe)
+// @route   GET /api/analytics/heatmap?range=week|month|6months|year
 // @access  Private
 const getHeatmap = async (req, res) => {
   try {
     const userId = req.user._id;
+    
+    // ⭐ Dynamically determine day count based on query param
+    const range = req.query.range || 'month';
+    let days = 30;
+    if (range === 'week') days = 7;
+    else if (range === '6months') days = 180;
+    else if (range === 'year') days = 365;
 
-    // Use exact IST date strings for the query boundary
     const todayStr = getTodayIST();
-    const startStr = getPastISTDate(29); // 29 days ago + today = 30 days
+    const startStr = getPastISTDate(days - 1); 
 
     const logs = await HabitLog.find({
       userId,
@@ -20,17 +26,15 @@ const getHeatmap = async (req, res) => {
       date: { $gte: startStr, $lte: todayStr },
     });
 
-    // Initialize map with 0
+    // Initialize map dynamically based on timeframe
     const heatmapMap = {};
-    for (let i = 0; i < 30; i++) {
-      // Safely grab the exact IST string for each of the past 30 days
-      const key = getPastISTDate(29 - i); 
+    for (let i = 0; i < days; i++) {
+      const key = getPastISTDate((days - 1) - i); 
       heatmapMap[key] = 0;
     }
 
     // Count completions per day
     logs.forEach(log => {
-      // Ensure we extract just the "YYYY-MM-DD" portion 
       const date = typeof log.date === "string" ? log.date.split("T")[0] : log.date.toISOString().split("T")[0];
       if (heatmapMap[date] !== undefined) {
         heatmapMap[date] += 1;
@@ -59,7 +63,6 @@ const getLeaderboard = async (req, res) => {
     const allUsers = await User.find({}).select("name disciplineScore");
     const allHabits = await Habit.find({ isActive: true }).select("userId streak totalCompleted _id");
 
-    // Use exact IST date strings for the streak check
     const todayStr = getTodayIST();
     const yesterdayStr = getPastISTDate(1);
 
