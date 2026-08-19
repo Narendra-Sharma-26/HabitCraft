@@ -9,16 +9,13 @@ import { useFonts, Pacifico_400Regular } from '@expo-google-fonts/pacifico';
 export default function LeaderboardScreen() {
   const [activeTab, setActiveTab] = useState<'global' | 'squads'>('global');
   
-  // Global States
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
   const [myRankData, setMyRankData] = useState<any>(null);
   
-  // Squad States
   const [myGroups, setMyGroups] = useState<any[]>([]);
   const [selectedGroup, setSelectedGroup] = useState<any>(null);
   const [groupLeaderboard, setGroupLeaderboard] = useState<any[]>([]);
   
-  // Forms & Invite Modal
   const [loading, setLoading] = useState(true);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
@@ -26,7 +23,6 @@ export default function LeaderboardScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
 
-  // ⭐ NEW: Custom Confirmation Modals State
   const [isDeleteSquadModalOpen, setIsDeleteSquadModalOpen] = useState(false);
   const [isRemoveMemberModalOpen, setIsRemoveMemberModalOpen] = useState(false);
   const [memberToRemove, setMemberToRemove] = useState<{ id: string, name: string } | null>(null);
@@ -75,7 +71,6 @@ export default function LeaderboardScreen() {
     Promise.all([fetchGlobalLeaderboard(), fetchMyGroups()]).finally(() => setLoading(false));
   }, []));
 
-  // --- SQUAD ACTIONS ---
   const handleCreateGroup = async () => {
     if (!newGroupName.trim()) return;
     try {
@@ -116,7 +111,6 @@ export default function LeaderboardScreen() {
     }
   };
 
-  // ⭐ FIX 3: Custom Modal Handlers for Deletion
   const confirmDeleteSquad = async () => {
     try {
       await api.delete(`/groups/${selectedGroup._id}`);
@@ -160,9 +154,12 @@ export default function LeaderboardScreen() {
     const rankStyle = getRankStyle(item.rank);
     const initial = item.name ? item.name.charAt(0).toUpperCase() : 'U';
     const isMe = item._id === myRankData?._id;
+    
+    const isAdmin = activeTab === 'squads' && selectedGroup?.admin && (
+      selectedGroup.admin._id === item._id || selectedGroup.admin === item._id
+    );
 
     return (
-      // ⭐ FIX 2: Wrapped the card in a row to allow the remove button to sit cleanly outside
       <View style={styles.cardWrapper}>
         <View style={[styles.card, { borderColor: rankStyle.borderColor, backgroundColor: rankStyle.bgColor, borderWidth: isTop3 ? 1.5 : 1 }]}>
           <View style={styles.rankContainer}>
@@ -180,7 +177,16 @@ export default function LeaderboardScreen() {
             <Text style={[styles.userName, isTop3 && { color: rankStyle.color }]} numberOfLines={1}>
               {item.name || 'Unknown Achiever'} {isMe && '(You)'}
             </Text>
-            <Text style={styles.userStats}>{item.disciplineScore || 0} XP</Text>
+            
+            {/* ⭐ Admin Tag moved underneath next to XP */}
+            <View style={styles.statsRow}>
+              <Text style={styles.userStats}>{item.disciplineScore || 0} XP</Text>
+              {isAdmin && (
+                <View style={styles.adminTag}>
+                  <Text style={styles.adminTagText}>Admin</Text>
+                </View>
+              )}
+            </View>
           </View>
 
           <View style={styles.streakContainer}>
@@ -189,7 +195,6 @@ export default function LeaderboardScreen() {
           </View>
         </View>
 
-        {/* The Remove Button is now securely outside the card layout */}
         {activeTab === 'squads' && !isMe && (
           <TouchableOpacity 
             style={styles.removeMemberBtnOutside} 
@@ -210,7 +215,7 @@ export default function LeaderboardScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}> Leaderboard</Text>
+        <Text style={styles.title}>Leaderboard</Text>
         
         <View style={styles.tabContainer}>
           <TouchableOpacity 
@@ -228,7 +233,6 @@ export default function LeaderboardScreen() {
         </View>
       </View>
 
-      {/* --- GLOBAL VIEW --- */}
       {activeTab === 'global' && (
         <>
           <FlatList
@@ -261,7 +265,6 @@ export default function LeaderboardScreen() {
         </>
       )}
 
-      {/* --- SQUADS VIEW --- */}
       {activeTab === 'squads' && (
         <View style={{ flex: 1 }}>
           {!selectedGroup ? (
@@ -302,7 +305,7 @@ export default function LeaderboardScreen() {
             <>
               <View style={styles.squadBoardHeader}>
                 <TouchableOpacity onPress={() => setSelectedGroup(null)} style={styles.backBtn}>
-                  <Text style={styles.backBtnText}>⬅ Back</Text>
+                  <Text style={styles.backBtnText}> Back</Text>
                 </TouchableOpacity>
                 
                 <Text style={styles.squadBoardTitle} numberOfLines={1}>{selectedGroup.name}</Text>
@@ -388,7 +391,6 @@ export default function LeaderboardScreen() {
               )}
             </ScrollView>
 
-            {/* ⭐ FIX 1: Clicking cancel now completely wipes the search state */}
             <TouchableOpacity 
               style={styles.modalCloseRedBtn} 
               onPress={() => {
@@ -403,7 +405,7 @@ export default function LeaderboardScreen() {
         </View>
       </Modal>
 
-      {/* --- ⭐ NEW: DELETE SQUAD MODAL --- */}
+      {/* --- DELETE SQUAD MODAL --- */}
       <Modal transparent visible={isDeleteSquadModalOpen} animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -422,7 +424,7 @@ export default function LeaderboardScreen() {
         </View>
       </Modal>
 
-      {/* --- ⭐ NEW: REMOVE MEMBER MODAL --- */}
+      {/* --- REMOVE MEMBER MODAL --- */}
       <Modal transparent visible={isRemoveMemberModalOpen} animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -457,9 +459,8 @@ const getStyles = (colors: any) => StyleSheet.create({
   tabText: { color: colors.textMuted, fontWeight: 'bold', fontSize: 15 },
   activeTabText: { color: '#FFF' },
   
-  // ⭐ FIX 2: Restructured Card Styles
   cardWrapper: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-  card: { flex: 1, flexDirection: 'row', alignItems: 'center', padding: 15, borderRadius: 16 }, // Margin bottom moved to wrapper
+  card: { flex: 1, flexDirection: 'row', alignItems: 'center', padding: 15, borderRadius: 16 }, 
   removeMemberBtnOutside: { padding: 15, marginLeft: 8, backgroundColor: 'rgba(255,0,0,0.05)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,0,0,0.1)' },
   removeMemberIcon: { color: colors.error, fontSize: 16, fontWeight: 'bold' },
 
@@ -472,8 +473,13 @@ const getStyles = (colors: any) => StyleSheet.create({
   
   userInfo: { flex: 1 },
   userName: { color: colors.text, fontSize: 18, fontWeight: 'bold', marginBottom: 4 },
-  userStats: { color: colors.textMuted, fontSize: 14, fontWeight: '600' },
   
+  // ⭐ Admin Tag Styles moved down next to XP
+  statsRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  userStats: { color: colors.textMuted, fontSize: 14, fontWeight: '600' },
+  adminTag: { backgroundColor: 'rgba(108, 99, 255, 0.15)', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 6, borderWidth: 1, borderColor: colors.primary },
+  adminTagText: { color: colors.primary, fontSize: 9, fontWeight: 'bold', textTransform: 'uppercase' },
+
   streakContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255, 215, 0, 0.15)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 },
   streakText: { color: colors.accent, fontSize: 16, fontWeight: 'bold', marginRight: 4 },
   fireIcon: { fontSize: 16 },
@@ -510,12 +516,9 @@ const getStyles = (colors: any) => StyleSheet.create({
   myRankStat: { color: '#FFF', fontSize: 15, fontWeight: '600' },
   myRankStatDivider: { color: 'rgba(255,255,255,0.5)', marginHorizontal: 10, fontSize: 16 },
 
-  // Modal Styles
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 20 },
   modalContent: { backgroundColor: colors.card, width: '100%', borderRadius: 20, padding: 25, alignItems: 'center', borderWidth: 1, borderColor: colors.border },
   modalTitle: { color: colors.text, fontSize: 22, fontWeight: 'bold', marginBottom: 20 },
-  
-  // Custom text for the new confirmation modals
   modalWarningText: { color: colors.textMuted, fontSize: 15, textAlign: 'center', marginBottom: 25, lineHeight: 22 },
   
   input: { width: '100%', backgroundColor: colors.background, color: colors.text, padding: 15, borderRadius: 12, borderWidth: 1, borderColor: colors.border, marginBottom: 20, fontSize: 16 },

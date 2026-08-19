@@ -1,5 +1,5 @@
-import React, { useState, useCallback, useContext, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator, ScrollView } from 'react-native';
+import React, { useState, useCallback, useContext, useEffect, useRef, memo } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView, InteractionManager } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { AuthContext } from '../context/AuthContext';
 import { AlertContext } from '../context/AlertContext'; 
@@ -9,7 +9,8 @@ import LottieView from 'lottie-react-native';
 import { requestNotificationPermission, syncHabitNotifications } from '../services/NotificationService'; 
 import { useFonts, Pacifico_400Regular } from '@expo-google-fonts/pacifico';
 
-const HabitListItem = ({ item, navigation, onToggle }: any) => {
+// ⭐ PERFORMANCE FIX: Memoizing the list item prevents unnecessary re-renders of the whole list
+const HabitListItem = memo(({ item, navigation, onToggle }: any) => {
   const [isCompleted, setIsCompleted] = useState(item.completedToday);
   const { colors } = useContext(ThemeContext);
   const styles = getStyles(colors);
@@ -46,7 +47,7 @@ const HabitListItem = ({ item, navigation, onToggle }: any) => {
       </TouchableOpacity>
     </TouchableOpacity>
   );
-};
+});
 
 export default function DashboardScreen({ navigation }: any) {
   const { logout, userData } = useContext(AuthContext);
@@ -86,8 +87,11 @@ export default function DashboardScreen({ navigation }: any) {
       setDashboardData(response.data);
 
       if (response.data.habits && !hasSynced.current) {
-          await syncHabitNotifications(response.data.habits);
-          hasSynced.current = true; 
+         // ⭐ PERFORMANCE FIX: Defers heavy background task until UI is fully rendered
+         InteractionManager.runAfterInteractions(async () => {
+             await syncHabitNotifications(response.data.habits);
+             hasSynced.current = true; 
+         });
       }
       
     } catch (error: any) {
@@ -142,7 +146,8 @@ export default function DashboardScreen({ navigation }: any) {
     }, [])
   );
 
-  const handleToggleComplete = async (item: any, isCompleting: boolean, revertLocalState: Function) => {
+  // ⭐ PERFORMANCE FIX: useCallback prevents child components from unmounting
+  const handleToggleComplete = useCallback(async (item: any, isCompleting: boolean, revertLocalState: Function) => {
     if (isCompleting) {
       setShowCelebration(true);
     }
@@ -158,7 +163,7 @@ export default function DashboardScreen({ navigation }: any) {
       revertLocalState(!isCompleting);
       showAlert("Action Failed", error.response?.data?.message || "Could not update habit.", "⚠️");
     }
-  };
+  }, []);
 
   const handleAddHabitClick = () => {
     const activeCount = dashboardData?.totalHabits || 0;
@@ -293,14 +298,17 @@ export default function DashboardScreen({ navigation }: any) {
             <Text style={styles.emptySubtext}>Time to build some discipline!</Text>
           </View>
         ) : (
-          <FlatList
-            data={dashboardData?.habits}
-            keyExtractor={(item) => item._id}
-            scrollEnabled={false} 
-            renderItem={({ item }) => (
-              <HabitListItem item={item} navigation={navigation} onToggle={handleToggleComplete} />
-            )}
-          />
+          /* ⭐ PERFORMANCE FIX: Removed FlatList inside ScrollView. Used .map() for small arrays */
+          <View>
+            {dashboardData?.habits?.map((item: any) => (
+              <HabitListItem 
+                key={item._id} 
+                item={item} 
+                navigation={navigation} 
+                onToggle={handleToggleComplete} 
+              />
+            ))}
+          </View>
         )}
       </ScrollView>
 
