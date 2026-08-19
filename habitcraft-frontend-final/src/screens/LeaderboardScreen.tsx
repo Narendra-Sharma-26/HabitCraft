@@ -104,7 +104,13 @@ export default function LeaderboardScreen() {
       setIsInviteModalOpen(false);
       setSearchQuery('');
       setSearchResults([]);
-      fetchGroupLeaderboard(selectedGroup._id); 
+      
+      // ⭐ FIX: Refresh both the group leaderboard and the background squad list count immediately
+      await Promise.all([
+        fetchGroupLeaderboard(selectedGroup._id),
+        fetchMyGroups()
+      ]);
+
       showAlert("Added", "User successfully added to your squad!", "✅");
     } catch (error: any) {
       showAlert("Error", error.response?.data?.message || "Could not add user.", "⚠️");
@@ -128,8 +134,10 @@ export default function LeaderboardScreen() {
     if (!memberToRemove) return;
     try {
       await api.delete(`/groups/${selectedGroup._id}/members/${memberToRemove.id}`);
-      fetchGroupLeaderboard(selectedGroup._id);
-      fetchMyGroups();
+      await Promise.all([
+        fetchGroupLeaderboard(selectedGroup._id),
+        fetchMyGroups()
+      ]);
       setIsRemoveMemberModalOpen(false);
       setMemberToRemove(null);
       showAlert("Removed", `${memberToRemove.name} has been removed.`, "✅");
@@ -178,7 +186,6 @@ export default function LeaderboardScreen() {
               {item.name || 'Unknown Achiever'} {isMe && '(You)'}
             </Text>
             
-            {/* ⭐ Admin Tag moved underneath next to XP */}
             <View style={styles.statsRow}>
               <Text style={styles.userStats}>{item.disciplineScore || 0} XP</Text>
               {isAdmin && (
@@ -474,7 +481,6 @@ const getStyles = (colors: any) => StyleSheet.create({
   userInfo: { flex: 1 },
   userName: { color: colors.text, fontSize: 18, fontWeight: 'bold', marginBottom: 4 },
   
-  // ⭐ Admin Tag Styles moved down next to XP
   statsRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   userStats: { color: colors.textMuted, fontSize: 14, fontWeight: '600' },
   adminTag: { backgroundColor: 'rgba(108, 99, 255, 0.15)', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 6, borderWidth: 1, borderColor: colors.primary },
