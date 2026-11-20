@@ -23,6 +23,16 @@ const habitLogSchema = new mongoose.Schema(
     completedAt: {
       type: Date,
     },
+    // ⭐ PROOF OF COMPLETION FIELDS
+    proofType: {
+      type: String,
+      enum: ["photo", "text", "none"],
+      default: "none",
+    },
+    proofText: { type: String },        // User's text description
+    proofImageUrl: { type: String },    // Base64 image string
+    proofVerified: { type: Boolean, default: false },
+    proofReason: { type: String },      // AI's reason for accept/reject
   },
   { timestamps: true }
 );

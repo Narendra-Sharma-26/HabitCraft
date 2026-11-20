@@ -10,7 +10,7 @@ const {
   deleteHabit     // <-- New
 } = require("../controllers/habitController");
 
-const { completeHabit, undoHabitComplete } = require("../controllers/habitLogController");
+const { completeHabit, undoHabitComplete, verifyAndCompleteHabit } = require("../controllers/habitLogController");
 const { getHabitHealthScores } = require("../controllers/habitHealthController");
 const { protect } = require("../middleware/authMiddleware");
 
@@ -26,8 +26,11 @@ router.patch("/:id/toggle", protect, toggleHabit);
 // Archive habit
 router.patch("/:id/archive", protect, archiveHabit);
 
-// Mark habit complete
+// Mark habit complete (legacy direct complete — still used for undo reference)
 router.patch("/:id/complete", protect, completeHabit);
+
+// ⭐ NEW: Verify proof then mark complete (Photo or Text via Gemini AI)
+router.post("/:id/verify-proof", protect, verifyAndCompleteHabit);
 
 // Undo habit completion
 router.delete("/:id/complete", protect, undoHabitComplete);

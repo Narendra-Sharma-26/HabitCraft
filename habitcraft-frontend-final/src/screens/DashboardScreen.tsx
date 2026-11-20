@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useContext, useEffect, useRef, memo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView, InteractionManager } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView, InteractionManager, Modal, TextInput, Image, Alert } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { AuthContext } from '../context/AuthContext';
 import { AlertContext } from '../context/AlertContext'; 
@@ -8,6 +8,8 @@ import api from '../api/axiosConfig';
 import LottieView from 'lottie-react-native';
 import { requestNotificationPermission, syncHabitNotifications } from '../services/NotificationService'; 
 import { useFonts, Pacifico_400Regular } from '@expo-google-fonts/pacifico';
+import * as ImagePicker from 'expo-image-picker';
+import { playRandomCelebrationSound } from '../services/SoundService';
 
 // ⭐ PERFORMANCE FIX: Memoizing the list item prevents unnecessary re-renders of the whole list
 const HabitListItem = memo(({ item, navigation, onToggle }: any) => {
@@ -16,9 +18,13 @@ const HabitListItem = memo(({ item, navigation, onToggle }: any) => {
   const styles = getStyles(colors);
 
   const handlePress = () => {
-    const nextState = !isCompleted;
-    setIsCompleted(nextState); 
-    onToggle(item, nextState, setIsCompleted); 
+    if (isCompleted) {
+      // Undo is still direct — no proof needed to undo
+      onToggle(item, false, setIsCompleted);
+      return;
+    }
+    // Completing → open proof modal (handled by parent via callback)
+    onToggle(item, true, setIsCompleted);
   };
 
   const getDifficultyColor = (diff: string) => {
@@ -66,6 +72,14 @@ export default function DashboardScreen({ navigation }: any) {
   const [loading, setLoading] = useState(true);
   
   const [showCelebration, setShowCelebration] = useState(false);
+
+  // ⭐ PROOF MODAL STATE
+  const [proofModalVisible, setProofModalVisible] = useState(false);
+  const [proofHabit, setProofHabit] = useState<any>(null);          // which habit we're completing
+  const [revertFn, setRevertFn] = useState<Function | null>(null);  // to revert optimistic UI on failure
+  const [proofText, setProofText] = useState('');
+  const [proofImage, setProofImage] = useState<{ uri: string; base64: string } | null>(null);
+  const [isVerifying, setIsVerifying] = useState(false);
 
   useEffect(() => {
     const setupNotifications = async () => {
@@ -148,22 +162,101 @@ export default function DashboardScreen({ navigation }: any) {
 
   // ⭐ PERFORMANCE FIX: useCallback prevents child components from unmounting
   const handleToggleComplete = useCallback(async (item: any, isCompleting: boolean, revertLocalState: Function) => {
-    if (isCompleting) {
-      setShowCelebration(true);
+    if (!isCompleting) {
+      // UNDO: still direct, no proof needed
+      try {
+        await api.delete(`/habits/${item._id}/complete`);
+        fetchDashboard();
+      } catch (error: any) {
+        revertLocalState(true);
+        showAlert("Action Failed", error.response?.data?.message || "Could not undo habit.", "⚠️");
+      }
+      return;
     }
 
-    try {
-      if (isCompleting) {
-        await api.patch(`/habits/${item._id}/complete`);
-      } else {
-        await api.delete(`/habits/${item._id}/complete`);
-      }
-      fetchDashboard(); 
-    } catch (error: any) {
-      revertLocalState(!isCompleting);
-      showAlert("Action Failed", error.response?.data?.message || "Could not update habit.", "⚠️");
-    }
+    // COMPLETING: open proof modal instead of calling API directly
+    setProofHabit(item);
+    setRevertFn(() => revertLocalState);
+    setProofText('');
+    setProofImage(null);
+    setProofModalVisible(true);
   }, []);
+
+  // ── Pick photo from camera ──
+  const handleTakePhoto = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      showAlert("Permission Denied", "Camera permission is required to take proof photos.", "📷");
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.5,
+      base64: true,
+    });
+    if (!result.canceled && result.assets[0]) {
+      setProofImage({ uri: result.assets[0].uri, base64: result.assets[0].base64 || '' });
+    }
+  };
+
+  // ── Submit proof to backend for AI verification ──
+  const handleSubmitProof = async () => {
+    if (!proofHabit) return;
+
+    const habitProofType = proofHabit.proofType || 'text';
+
+    if (habitProofType === 'photo' && !proofImage) {
+      showAlert("Photo Required", "Please take a photo as proof before submitting.", "📸");
+      return;
+    }
+    if (habitProofType === 'text' && proofText.trim().length < 15) {
+      showAlert("Too Vague", "Please describe your completion in at least 15 characters.", "📝");
+      return;
+    }
+
+    setIsVerifying(true);
+    try {
+      const payload: any = { proofType: habitProofType };
+      if (habitProofType === 'photo') {
+        payload.proofImageBase64 = proofImage!.base64;
+      } else {
+        payload.proofText = proofText.trim();
+      }
+
+      await api.post(`/habits/${proofHabit._id}/verify-proof`, payload);
+
+      // ✅ Verified!
+      setProofModalVisible(false);
+      setShowCelebration(true);
+      playRandomCelebrationSound();
+      fetchDashboard();
+    } catch (error: any) {
+      const status = error.response?.status;
+      const reason = error.response?.data?.reason || error.response?.data?.message || "Verification failed.";
+
+      if (status === 422) {
+        // AI rejected the proof — revert UI state and show reason
+        if (revertFn) revertFn(false);
+        showAlert("Proof Rejected ❌", reason, "🛡️");
+      } else {
+        if (revertFn) revertFn(false);
+        showAlert("Error", reason, "⚠️");
+      }
+      setProofModalVisible(false);
+    } finally {
+      setIsVerifying(false);
+      setRevertFn(null);
+    }
+  };
+
+  // ── Close modal and revert optimistic UI ──
+  const handleCloseProofModal = () => {
+    if (revertFn) revertFn(false);
+    setProofModalVisible(false);
+    setRevertFn(null);
+    setProofImage(null);
+    setProofText('');
+  };
 
   const handleAddHabitClick = () => {
     const activeCount = dashboardData?.totalHabits || 0;
@@ -315,6 +408,80 @@ export default function DashboardScreen({ navigation }: any) {
       <TouchableOpacity style={styles.fab} onPress={handleAddHabitClick}>
         <Text style={styles.fabText}>+ Add Habit</Text>
       </TouchableOpacity>
+
+      {/* ⭐ PROOF OF COMPLETION MODAL */}
+      <Modal
+        visible={proofModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={handleCloseProofModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalTitle}>🛡️ Prove You Did It!</Text>
+            <Text style={styles.modalSubtitle}>
+              {proofHabit?.icon || '🎯'} {proofHabit?.title}
+            </Text>
+
+            {/* ── PHOTO PROOF ── */}
+            {(proofHabit?.proofType || 'text') === 'photo' ? (
+              <View style={styles.photoProofContainer}>
+                <Text style={styles.modalLabel}>📸 Take a photo as proof</Text>
+                {proofImage ? (
+                  <View>
+                    <Image source={{ uri: proofImage.uri }} style={styles.proofImagePreview} />
+                    <TouchableOpacity style={styles.retakeBtn} onPress={handleTakePhoto}>
+                      <Text style={styles.retakeBtnText}>🔄 Retake Photo</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <TouchableOpacity style={styles.cameraBtn} onPress={handleTakePhoto}>
+                    <Text style={styles.cameraBtnText}>📷 Open Camera</Text>
+                  </TouchableOpacity>
+                )}
+                <Text style={styles.proofHint}>The AI will verify your photo matches the habit.</Text>
+              </View>
+            ) : (
+              /* ── TEXT PROOF ── */
+              <View>
+                <Text style={styles.modalLabel}>📝 Describe what you did</Text>
+                <TextInput
+                  style={[styles.proofInput, { color: colors.text, borderColor: colors.border, backgroundColor: colors.background }]}
+                  placeholder={`e.g., "Read pages 45–55 of Atomic Habits about habit loops..."`}
+                  placeholderTextColor={colors.textMuted}
+                  value={proofText}
+                  onChangeText={setProofText}
+                  multiline
+                  numberOfLines={4}
+                  maxLength={500}
+                />
+                <Text style={styles.proofHint}>Be specific — vague answers like "I did it" will be rejected by AI.</Text>
+              </View>
+            )}
+
+            {/* ── ACTION BUTTONS ── */}
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={styles.cancelModalBtn} onPress={handleCloseProofModal} disabled={isVerifying}>
+                <Text style={styles.cancelModalBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.submitProofBtn, isVerifying && { opacity: 0.6 }]}
+                onPress={handleSubmitProof}
+                disabled={isVerifying}
+              >
+                {isVerifying
+                  ? <ActivityIndicator color="#FFF" />
+                  : <Text style={styles.submitProofBtnText}>Submit Proof →</Text>
+                }
+              </TouchableOpacity>
+            </View>
+
+            {isVerifying && (
+              <Text style={styles.verifyingText}>🤖 AI is verifying your proof...</Text>
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -370,5 +537,29 @@ const getStyles = (colors: any) => StyleSheet.create({
   completeBtnText: { color: '#FFF', fontWeight: 'bold' },
   
   fab: { position: 'absolute', bottom: 30, right: 20, backgroundColor: colors.primary, paddingVertical: 15, paddingHorizontal: 25, borderRadius: 30, elevation: 5 },
-  fabText: { color: '#FFF', fontWeight: 'bold', fontSize: 16 }
+  fabText: { color: '#FFF', fontWeight: 'bold', fontSize: 16 },
+
+  // ⭐ PROOF MODAL STYLES
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
+  modalContainer: { backgroundColor: colors.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 40, borderWidth: 1, borderColor: colors.border },
+  modalTitle: { color: colors.text, fontSize: 22, fontWeight: 'bold', textAlign: 'center', marginBottom: 6 },
+  modalSubtitle: { color: colors.textMuted, fontSize: 15, textAlign: 'center', marginBottom: 20 },
+  modalLabel: { color: colors.text, fontSize: 15, fontWeight: '600', marginBottom: 10 },
+
+  photoProofContainer: { alignItems: 'center', marginBottom: 10 },
+  cameraBtn: { backgroundColor: colors.primary, paddingVertical: 14, paddingHorizontal: 30, borderRadius: 12, marginBottom: 10 },
+  cameraBtnText: { color: '#FFF', fontWeight: 'bold', fontSize: 16 },
+  proofImagePreview: { width: '100%', height: 180, borderRadius: 12, marginBottom: 10, resizeMode: 'cover' },
+  retakeBtn: { alignItems: 'center', marginBottom: 6 },
+  retakeBtnText: { color: colors.primary, fontWeight: '600', fontSize: 14 },
+
+  proofInput: { borderWidth: 1, borderRadius: 12, padding: 14, fontSize: 15, minHeight: 100, textAlignVertical: 'top', marginBottom: 8 },
+  proofHint: { color: colors.textMuted, fontSize: 12, marginBottom: 20, fontStyle: 'italic' },
+
+  modalActions: { flexDirection: 'row', gap: 12, marginTop: 4 },
+  cancelModalBtn: { flex: 1, paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center' },
+  cancelModalBtnText: { color: colors.textMuted, fontWeight: 'bold', fontSize: 15 },
+  submitProofBtn: { flex: 2, backgroundColor: colors.primary, paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
+  submitProofBtnText: { color: '#FFF', fontWeight: 'bold', fontSize: 15 },
+  verifyingText: { color: colors.textMuted, textAlign: 'center', marginTop: 12, fontSize: 13, fontStyle: 'italic' },
 });

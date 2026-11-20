@@ -37,6 +37,9 @@ const habitSchema = new mongoose.Schema(
     isArchived: { type: Boolean, default: false },
     pauseCount: { type: Number, default: 0 },
     pauseMonth: { type: String },
+
+    // ⭐ PROOF OF COMPLETION: 'photo' = requires camera proof, 'text' = AI text verification
+    proofType: { type: String, enum: ["photo", "text"], default: "text" },
   },
   { timestamps: true }
 );

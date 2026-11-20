@@ -8,6 +8,7 @@ import api from '../api/axiosConfig';
 import { Ionicons } from '@expo/vector-icons'; 
 import { cancelAllScheduledNotifications } from '../services/NotificationService';
 import { useFonts, Pacifico_400Regular } from '@expo-google-fonts/pacifico';
+import { isCelebrationSoundEnabled, setCelebrationSoundEnabled } from '../services/SoundService';
 
 export default function ProfileScreen({ navigation }: any) {
     const { logout, userData } = useContext(AuthContext); 
@@ -27,6 +28,9 @@ export default function ProfileScreen({ navigation }: any) {
     
     // Stats State
     const [userStats, setUserStats] = useState({ xp: 0, rank: null });
+
+    // Sound Preference State
+    const [soundEnabled, setSoundEnabled] = useState(true);
 
     // Password Form States
     const [currentPassword, setCurrentPassword] = useState('');
@@ -64,12 +68,20 @@ export default function ProfileScreen({ navigation }: any) {
             };
             
             fetchStats();
+            isCelebrationSoundEnabled().then((enabled) => {
+                if (isActive) setSoundEnabled(enabled);
+            });
 
             return () => {
                 isActive = false;
             };
         }, [])
     );
+
+    const handleToggleSound = async (val: boolean) => {
+        setSoundEnabled(val);
+        await setCelebrationSoundEnabled(val);
+    };
 
     const validateNewPassword = (text: string) => {
         setNewPassword(text);
@@ -190,6 +202,23 @@ export default function ProfileScreen({ navigation }: any) {
                         onValueChange={toggleTheme}
                         trackColor={{ false: '#CBD5E1', true: colors.primary }}
                         thumbColor={isDark ? '#FFFFFF' : '#F8FAFC'}
+                    />
+                </View>
+
+                {/* ⭐ COMPLETION SOUND TOGGLE */}
+                <View style={styles.menuButton}>
+                    <View style={[styles.menuIconBox, { backgroundColor: colors.accent + '15' }]}>
+                        <Text style={styles.menuIcon}>{soundEnabled ? "🔊" : "🔇"}</Text>
+                    </View>
+                    <View style={styles.menuTextContainer}>
+                        <Text style={styles.menuTitle}>Completion Sound</Text>
+                        <Text style={styles.menuSub}>{soundEnabled ? "Play funny sound on finish" : "Muted"}</Text>
+                    </View>
+                    <Switch
+                        value={soundEnabled}
+                        onValueChange={handleToggleSound}
+                        trackColor={{ false: '#CBD5E1', true: colors.primary }}
+                        thumbColor={soundEnabled ? '#FFFFFF' : '#F8FAFC'}
                     />
                 </View>
 

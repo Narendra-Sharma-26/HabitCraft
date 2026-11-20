@@ -34,6 +34,8 @@ export default function AddHabitScreen({ navigation }: any) {
   const [selectedDurationChip, setSelectedDurationChip] = useState<number | 'Custom'>(30);
   const [customDuration, setCustomDuration] = useState(''); 
   const [loading, setLoading] = useState(false);
+  // ⭐ PROOF TYPE: 'text' = AI text verification, 'photo' = camera proof
+  const [proofType, setProofType] = useState<'text' | 'photo'>('text');
 
   const difficulties = ["Easy", "Medium", "Hard"];
   const times = ["Morning", "Afternoon", "Evening"];
@@ -56,7 +58,7 @@ export default function AddHabitScreen({ navigation }: any) {
     setLoading(true);
     try {
       const response = await api.post('/habits', {
-        title, icon, difficulty, preferredTime, duration: finalDuration 
+        title, icon, difficulty, preferredTime, duration: finalDuration, proofType
       });
       
       const createdHabit = response.data.habit || response.data;
@@ -207,6 +209,31 @@ export default function AddHabitScreen({ navigation }: any) {
             <Text style={styles.label}>Preferred Time ⏰</Text>
             <Text style={styles.helperText}>The AI will try to schedule your habit during this block.</Text>
             {renderChips(times, preferredTime, setPreferredTime)}
+        </View>
+
+        {/* ⭐ PROOF TYPE SECTION */}
+        <View style={styles.cardSection}>
+            <Text style={styles.label}>Proof of Completion 🛡️</Text>
+            <Text style={styles.helperText}>How will you prove this habit is done? This prevents fake completions.</Text>
+            <View style={styles.chipContainer}>
+              <TouchableOpacity
+                style={[styles.chip, proofType === 'text' ? styles.chipSelected : null]}
+                onPress={() => setProofType('text')}
+              >
+                <Text style={[styles.chipText, proofType === 'text' ? styles.chipTextSelected : null]}>📝 Text Proof</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.chip, proofType === 'photo' ? styles.chipSelected : null]}
+                onPress={() => setProofType('photo')}
+              >
+                <Text style={[styles.chipText, proofType === 'photo' ? styles.chipTextSelected : null]}>📸 Photo Proof</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.helperText}>
+              {proofType === 'photo'
+                ? '📸 You\'ll need to take a photo when marking done. Best for: running, gym, meals.'
+                : '📝 Describe what you did. Best for: reading, meditation, journaling.'}
+            </Text>
         </View>
 
         <TouchableOpacity style={styles.primaryButton} onPress={handleCreateHabit} disabled={loading}>

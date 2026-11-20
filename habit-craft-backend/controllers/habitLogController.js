@@ -2,11 +2,154 @@ const HabitLog = require("../models/HabitLog");
 const Habit = require("../models/Habit");
 const User = require("../models/User");
 const { getTodayIST, getPastISTDate } = require("../utils/dateHelper");
+const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 const difficultyPoints = {
   Easy: 5,
   Medium: 10,
   Hard: 15,
+};
+
+// ─────────────────────────────────────────────────────────────────
+// @desc    Verify proof (photo or text) then mark habit as complete
+// @route   POST /api/habits/:id/verify-proof
+// @access  Private
+// ─────────────────────────────────────────────────────────────────
+const verifyAndCompleteHabit = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const habitId = req.params.id;
+    const { proofType, proofText, proofImageBase64 } = req.body;
+
+    const today = getTodayIST();
+    const yesterdayDate = getPastISTDate(1);
+
+    // --- Guard: habit must exist and belong to this user ---
+    const habit = await Habit.findOne({ _id: habitId, userId });
+    if (!habit) return res.status(404).json({ message: "Habit not found" });
+
+    // --- Guard: not already completed today ---
+    const recentLogs = await HabitLog.find({
+      habitId,
+      date: { $gte: yesterdayDate },
+    });
+    const formatLogDate = (log) =>
+      typeof log.date === "string"
+        ? log.date.split("T")[0]
+        : log.date.toISOString().split("T")[0];
+    const hasCompletedToday = recentLogs.some(
+      (log) => formatLogDate(log) === today
+    );
+    if (hasCompletedToday)
+      return res.status(400).json({ message: "Habit already marked complete today" });
+
+    // --- AI Verification ---
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    let verificationResult = { verified: false, reason: "" };
+
+    if (proofType === "photo" && proofImageBase64) {
+      // ── PHOTO PROOF: Gemini Vision ──
+      const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash-lite" });
+
+      const prompt = `You are a strict but fair habit completion verifier for an app called HabitCraft.
+
+The user is trying to prove they completed the habit: "${habit.title}".
+
+Look at the provided image carefully and determine:
+1. Does the image show evidence of completing "${habit.title}"?
+2. Does the image look genuine and taken recently (not an old stock photo or unrelated image)?
+
+Respond ONLY with valid JSON in this exact format:
+{"verified": true or false, "reason": "one sentence explanation"}
+
+Be strict - vague or unrelated photos should be rejected.`;
+
+      const imagePart = {
+        inlineData: {
+          data: proofImageBase64,
+          mimeType: "image/jpeg",
+        },
+      };
+
+      const result = await model.generateContent([prompt, imagePart]);
+      const rawText = result.response.text().trim();
+
+      // Strip markdown code fences if present
+      const jsonText = rawText.replace(/```json|```/g, "").trim();
+      verificationResult = JSON.parse(jsonText);
+
+    } else if (proofType === "text" && proofText) {
+      // ── TEXT PROOF: Gemini Text ──
+      const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash-lite" });
+
+      const prompt = `You are a strict but fair habit completion verifier for an app called HabitCraft.
+
+The user claims to have completed the habit: "${habit.title}".
+Their proof description: "${proofText}"
+
+Evaluate if this is a genuine, specific proof of completion. Reject if:
+- The description is too vague (e.g., "I did it", "yes", "done")
+- It doesn't relate to the habit at all
+- It seems made-up or generic
+
+Respond ONLY with valid JSON in this exact format:
+{"verified": true or false, "reason": "one sentence explanation"}`;
+
+      const result = await model.generateContent(prompt);
+      const rawText = result.response.text().trim();
+      const jsonText = rawText.replace(/```json|```/g, "").trim();
+      verificationResult = JSON.parse(jsonText);
+
+    } else {
+      return res.status(400).json({ message: "Invalid proof. Provide proofText or proofImageBase64." });
+    }
+
+    // --- If NOT verified, return rejection without logging ---
+    if (!verificationResult.verified) {
+      return res.status(422).json({
+        verified: false,
+        reason: verificationResult.reason || "Your proof was not convincing enough. Please try again.",
+      });
+    }
+
+    // --- Proof verified: create log & award XP (same logic as completeHabit) ---
+    const log = await HabitLog.create({
+      habitId,
+      userId,
+      date: today,
+      completed: true,
+      completedAt: new Date(),
+      proofType,
+      proofText: proofText || null,
+      proofVerified: true,
+      proofReason: verificationResult.reason,
+    });
+
+    const hasCompletedYesterday = recentLogs.some(
+      (log) => formatLogDate(log) === yesterdayDate
+    );
+    habit.streak = hasCompletedYesterday ? habit.streak + 1 : 1;
+    habit.totalCompleted += 1;
+    await habit.save();
+
+    const points = difficultyPoints[habit.difficulty] || 10;
+    const user = await User.findById(userId);
+    user.disciplineScore = (user.disciplineScore || 0) + points;
+    await user.save();
+
+    res.json({
+      verified: true,
+      reason: verificationResult.reason,
+      log,
+    });
+  } catch (error) {
+    console.error("verifyAndCompleteHabit error:", error.message);
+    // Handle JSON parse errors from Gemini gracefully
+    if (error instanceof SyntaxError) {
+      return res.status(500).json({ message: "AI verification failed to parse. Please try again." });
+    }
+    res.status(500).json({ message: error.message });
+  }
 };
 
 // @desc    Mark habit as completed for today
@@ -96,7 +239,7 @@ const undoHabitComplete = async (req, res) => {
   }
 };
 
-module.exports = { completeHabit, undoHabitComplete };
+module.exports = { completeHabit, undoHabitComplete, verifyAndCompleteHabit };
 
 
 // =======================================================
@@ -190,4 +333,4 @@ module.exports = { completeHabit, undoHabitComplete };
 //   }
 // };
 
-// module.exports = { completeHabit, undoHabitComplete };
+// module.exports = { completeHabit, undoHabitComplete, verifyAndCompleteHabit };
