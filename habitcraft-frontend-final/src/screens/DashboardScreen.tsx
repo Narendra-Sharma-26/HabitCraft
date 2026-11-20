@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useContext, useEffect, useRef, memo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView, InteractionManager, Modal, TextInput, Image, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView, InteractionManager, Modal, TextInput, Image, Alert, KeyboardAvoidingView, Platform, Keyboard, TouchableWithoutFeedback } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { AuthContext } from '../context/AuthContext';
 import { AlertContext } from '../context/AlertContext'; 
@@ -16,6 +16,11 @@ const HabitListItem = memo(({ item, navigation, onToggle }: any) => {
   const [isCompleted, setIsCompleted] = useState(item.completedToday);
   const { colors } = useContext(ThemeContext);
   const styles = getStyles(colors);
+
+  // ⭐ Keep local state in sync when parent dashboard data updates
+  useEffect(() => {
+    setIsCompleted(item.completedToday);
+  }, [item.completedToday]);
 
   const handlePress = () => {
     if (isCompleted) {
@@ -225,7 +230,8 @@ export default function DashboardScreen({ navigation }: any) {
 
       await api.post(`/habits/${proofHabit._id}/verify-proof`, payload);
 
-      // ✅ Verified!
+      // ✅ Verified! Instantly update the button to 'Done'
+      if (revertFn) revertFn(true);
       setProofModalVisible(false);
       setShowCelebration(true);
       playRandomCelebrationSound();
@@ -416,71 +422,86 @@ export default function DashboardScreen({ navigation }: any) {
         transparent={true}
         onRequestClose={handleCloseProofModal}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <Text style={styles.modalTitle}>🛡️ Prove You Did It!</Text>
-            <Text style={styles.modalSubtitle}>
-              {proofHabit?.icon || '🎯'} {proofHabit?.title}
-            </Text>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalOverlay}
+        >
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+            <View style={styles.modalBackdrop}>
+              <TouchableWithoutFeedback>
+                <View style={styles.modalContainer}>
+                  <ScrollView
+                    showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
+                    contentContainerStyle={{ paddingBottom: 15 }}
+                  >
+                    <Text style={styles.modalTitle}>🛡️ Prove You Did It!</Text>
+                    <Text style={styles.modalSubtitle}>
+                      {proofHabit?.icon || '🎯'} {proofHabit?.title}
+                    </Text>
 
-            {/* ── PHOTO PROOF ── */}
-            {(proofHabit?.proofType || 'text') === 'photo' ? (
-              <View style={styles.photoProofContainer}>
-                <Text style={styles.modalLabel}>📸 Take a photo as proof</Text>
-                {proofImage ? (
-                  <View>
-                    <Image source={{ uri: proofImage.uri }} style={styles.proofImagePreview} />
-                    <TouchableOpacity style={styles.retakeBtn} onPress={handleTakePhoto}>
-                      <Text style={styles.retakeBtnText}>🔄 Retake Photo</Text>
-                    </TouchableOpacity>
-                  </View>
-                ) : (
-                  <TouchableOpacity style={styles.cameraBtn} onPress={handleTakePhoto}>
-                    <Text style={styles.cameraBtnText}>📷 Open Camera</Text>
-                  </TouchableOpacity>
-                )}
-                <Text style={styles.proofHint}>The AI will verify your photo matches the habit.</Text>
-              </View>
-            ) : (
-              /* ── TEXT PROOF ── */
-              <View>
-                <Text style={styles.modalLabel}>📝 Describe what you did</Text>
-                <TextInput
-                  style={[styles.proofInput, { color: colors.text, borderColor: colors.border, backgroundColor: colors.background }]}
-                  placeholder={`e.g., "Read pages 45–55 of Atomic Habits about habit loops..."`}
-                  placeholderTextColor={colors.textMuted}
-                  value={proofText}
-                  onChangeText={setProofText}
-                  multiline
-                  numberOfLines={4}
-                  maxLength={500}
-                />
-                <Text style={styles.proofHint}>Be specific — vague answers like "I did it" will be rejected by AI.</Text>
-              </View>
-            )}
+                    {/* ── PHOTO PROOF ── */}
+                    {(proofHabit?.proofType || 'text') === 'photo' ? (
+                      <View style={styles.photoProofContainer}>
+                        <Text style={styles.modalLabel}>📸 Take a photo as proof</Text>
+                        {proofImage ? (
+                          <View style={{ width: '100%', alignItems: 'center' }}>
+                            <Image source={{ uri: proofImage.uri }} style={styles.proofImagePreview} />
+                            <TouchableOpacity style={styles.retakeBtn} onPress={handleTakePhoto}>
+                              <Text style={styles.retakeBtnText}>🔄 Retake Photo</Text>
+                            </TouchableOpacity>
+                          </View>
+                        ) : (
+                          <TouchableOpacity style={styles.cameraBtn} onPress={handleTakePhoto}>
+                            <Text style={styles.cameraBtnText}>📷 Open Camera</Text>
+                          </TouchableOpacity>
+                        )}
+                        <Text style={styles.proofHint}>The AI will verify your photo matches the habit.</Text>
+                      </View>
+                    ) : (
+                      /* ── TEXT PROOF ── */
+                      <View>
+                        <Text style={styles.modalLabel}>📝 Describe what you did</Text>
+                        <TextInput
+                          style={[styles.proofInput, { color: colors.text, borderColor: colors.border, backgroundColor: colors.background }]}
+                          placeholder={`e.g., "Read pages 45–55 of Atomic Habits about habit loops..."`}
+                          placeholderTextColor={colors.textMuted}
+                          value={proofText}
+                          onChangeText={setProofText}
+                          multiline
+                          numberOfLines={4}
+                          maxLength={500}
+                        />
+                        <Text style={styles.proofHint}>Be specific — vague answers like "I did it" will be rejected by AI.</Text>
+                      </View>
+                    )}
 
-            {/* ── ACTION BUTTONS ── */}
-            <View style={styles.modalActions}>
-              <TouchableOpacity style={styles.cancelModalBtn} onPress={handleCloseProofModal} disabled={isVerifying}>
-                <Text style={styles.cancelModalBtnText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.submitProofBtn, isVerifying && { opacity: 0.6 }]}
-                onPress={handleSubmitProof}
-                disabled={isVerifying}
-              >
-                {isVerifying
-                  ? <ActivityIndicator color="#FFF" />
-                  : <Text style={styles.submitProofBtnText}>Submit Proof →</Text>
-                }
-              </TouchableOpacity>
+                    {/* ── ACTION BUTTONS ── */}
+                    <View style={styles.modalActions}>
+                      <TouchableOpacity style={styles.cancelModalBtn} onPress={handleCloseProofModal} disabled={isVerifying}>
+                        <Text style={styles.cancelModalBtnText}>Cancel</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.submitProofBtn, isVerifying && { opacity: 0.6 }]}
+                        onPress={handleSubmitProof}
+                        disabled={isVerifying}
+                      >
+                        {isVerifying
+                          ? <ActivityIndicator color="#FFF" />
+                          : <Text style={styles.submitProofBtnText}>Submit Proof →</Text>
+                        }
+                      </TouchableOpacity>
+                    </View>
+
+                    {isVerifying && (
+                      <Text style={styles.verifyingText}>🤖 AI is verifying your proof...</Text>
+                    )}
+                  </ScrollView>
+                </View>
+              </TouchableWithoutFeedback>
             </View>
-
-            {isVerifying && (
-              <Text style={styles.verifyingText}>🤖 AI is verifying your proof...</Text>
-            )}
-          </View>
-        </View>
+          </TouchableWithoutFeedback>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
@@ -540,8 +561,9 @@ const getStyles = (colors: any) => StyleSheet.create({
   fabText: { color: '#FFF', fontWeight: 'bold', fontSize: 16 },
 
   // ⭐ PROOF MODAL STYLES
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
-  modalContainer: { backgroundColor: colors.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 40, borderWidth: 1, borderColor: colors.border },
+  modalOverlay: { flex: 1 },
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
+  modalContainer: { backgroundColor: colors.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 35, maxHeight: '85%', borderWidth: 1, borderColor: colors.border },
   modalTitle: { color: colors.text, fontSize: 22, fontWeight: 'bold', textAlign: 'center', marginBottom: 6 },
   modalSubtitle: { color: colors.textMuted, fontSize: 15, textAlign: 'center', marginBottom: 20 },
   modalLabel: { color: colors.text, fontSize: 15, fontWeight: '600', marginBottom: 10 },

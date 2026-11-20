@@ -9,8 +9,8 @@ const { getTodayIST, getPastISTDate } = require("../utils/dateHelper");
 // @access  Private
 const addHabit = async (req, res) => {
   try {
-    // ⭐ ADDED 'icon' here so the backend extracts it from the frontend request
-    const { title, icon, difficulty, preferredTime, duration, timeWindow } = req.body; 
+    // ⭐ ADDED 'icon' and 'proofType' here so the backend extracts it from the frontend request
+    const { title, icon, difficulty, preferredTime, duration, timeWindow, proofType } = req.body; 
     const userId = req.user._id;
 
     const schedule = await Schedule.findOne({ userId });
@@ -51,8 +51,8 @@ const addHabit = async (req, res) => {
     const scheduledTime = findAvailableTime(schedule, preferredTime, existingHabits, habitDuration, timeWindow);
 
     const habit = await Habit.create({
-      // ⭐ ADDED 'icon' here to securely save it to the MongoDB document
-      userId, title, icon, difficulty, preferredTime, timeWindow, scheduledTime, duration: habitDuration, 
+      // ⭐ ADDED 'icon' and 'proofType' here to securely save it to the MongoDB document
+      userId, title, icon, difficulty, preferredTime, timeWindow, scheduledTime, duration: habitDuration, proofType: proofType || 'text',
     });
 
     res.status(201).json({ message: "Habit added successfully", habit });
@@ -163,8 +163,8 @@ const archiveHabit = async (req, res) => {
 // @access  Private
 const editHabit = async (req, res) => {
   try {
-    // ⭐ ADDED 'icon' here so the backend extracts it during an update
-    const { title, icon, difficulty, duration, scheduledTime } = req.body;
+    // ⭐ ADDED 'icon' and 'proofType' here so the backend extracts it during an update
+    const { title, icon, difficulty, duration, scheduledTime, proofType } = req.body;
     const userId = req.user._id;
     const habitId = req.params.id;
 
@@ -176,6 +176,9 @@ const editHabit = async (req, res) => {
     
     // ⭐ ADDED: Securely save the new icon if the user selected one
     if (icon) habit.icon = icon;
+
+    // ⭐ ADDED: Update proofType if user changes it
+    if (proofType) habit.proofType = proofType;
     
     if (difficulty && habit.difficulty !== difficulty) {
       if (habit.difficultyUpdatedAt) {

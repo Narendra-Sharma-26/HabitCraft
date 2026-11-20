@@ -44,6 +44,7 @@ export default function EditHabitScreen({ route, navigation }: any) {
   const [showPicker, setShowPicker] = useState(false);
 
   const [alarmEnabled, setAlarmEnabled] = useState(true);
+  const [proofType, setProofType] = useState<'text' | 'photo'>(habit.proofType || 'text');
 
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -159,7 +160,8 @@ export default function EditHabitScreen({ route, navigation }: any) {
         icon, 
         difficulty,
         duration: parseInt(duration),
-        scheduledTime
+        scheduledTime,
+        proofType
       });
 
       let alarmMessage = "";
@@ -276,6 +278,29 @@ export default function EditHabitScreen({ route, navigation }: any) {
 
         <Text style={styles.label}>Duration (minutes)</Text>
         <TextInput style={styles.input} value={duration} onChangeText={setDuration} keyboardType="numeric" />
+
+        {/* ⭐ PROOF OF COMPLETION SELECTOR */}
+        <Text style={[styles.label, { marginTop: 25 }]}>Proof of Completion 🛡️</Text>
+        <Text style={styles.helperText}>How will you prove this habit is done?</Text>
+        <View style={styles.chipContainer}>
+          <TouchableOpacity
+            style={[styles.chip, proofType === 'text' && styles.chipSelected]}
+            onPress={() => setProofType('text')}
+          >
+            <Text style={[styles.chipText, proofType === 'text' && styles.chipTextSelected]}>📝 Text Proof</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.chip, proofType === 'photo' && styles.chipSelected]}
+            onPress={() => setProofType('photo')}
+          >
+            <Text style={[styles.chipText, proofType === 'photo' && styles.chipTextSelected]}>📸 Photo Proof</Text>
+          </TouchableOpacity>
+        </View>
+        <Text style={[styles.helperText, { marginTop: 6 }]}>
+          {proofType === 'photo'
+            ? '📸 Requires opening camera to take a live photo.'
+            : '📝 Requires describing what you did (AI text analysis).'}
+        </Text>
 
         <View style={styles.toggleRow}>
           <View style={{ flex: 1, paddingRight: 10 }}>
